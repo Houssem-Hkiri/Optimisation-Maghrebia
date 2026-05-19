@@ -1,0 +1,14 @@
+validation_area,status,key_result,interpretation,action_required
+Inputs APT,PASSED,PASSED,Les rendements attendus et la covariance proviennent des exports APT du notebook 01.,Aucune si PASSED.
+Covariance,PASSED,APT,La matrice APT est utilisée comme covariance principale.,Revoir la PSD si FAILED.
+Contraintes réglementaires,PASSED_WITH_WARNINGS,"16 testables, 4 non testées",Aucune violation n’a été détectée sur les contraintes testables. Certaines contraintes restent non testées faute de données détaillées ; cette conclusion ne constitue pas une certification réglementaire exhaustive.,Compléter les données manquantes pour certification exhaustive.
+Optimisation,PASSED,PASSED,Les modèles demandés sont résolus sous contraintes communes.,Analyser les solveurs en échec si FAILED.
+Monte Carlo,PASSED,15000,Les portefeuilles Monte Carlo faisables respectent le turnover retenu.,Augmenter les simulations si faible couverture.
+Frontière efficiente,PASSED,PASSED,La frontière est cohérente avec Minimum Variance si PASSED.,Ne pas utiliser la frontière si FAILED.
+Turnover,PASSED,0.3,La sensibilité au turnover est documentée.,Arbitrage de gouvernance requis.
+Sharpe élevé,WARNING,2,Les portefeuilles avec Sharpe > 3 nécessitent une revue économique.,Revue métier si WARNING.
+Backtest historique,PASSED,2214,Backtest indicatif sur l’historique 2025 disponible.,Ne pas l’interpréter comme preuve prédictive.
+Walk-forward,PASSED,train/test 60/40,Validation walk-forward limitée par la taille de l’historique disponible.,À renforcer avec un historique plus long.
+Scénarios,PASSED_WITH_WARNINGS,DURATION_PROXY_USED,"Scénarios simples actions, taux, spreads et liquidité.",Remplacer les proxys par duration modifiée si disponible.
+Données manquantes,NOT_TESTED_DATA_MISSING,4,Les contraintes non testables sont isolées.,"Collecter capital social, détail OPCVM/SICAR si nécessaire."
+Conclusion globale,PASSED_WITH_WARNINGS,Aide à la décision sous contraintes,"Le notebook produit des allocations optimisées et des tests de validation cohérents avec les données disponibles. Les résultats sont défendables comme outil d’aide à la décision, mais certaines contraintes réglementaires et certains scénarios restent dépendants de données manquantes ou d’approximations documentées.",Validation métier avant toute allocation réelle.

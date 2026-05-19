@@ -1,0 +1,10 @@
+scenario_id,scenario_name,scenario_type,affected_assets,shock_equity_pct,shock_rate_bps,shock_spread_bps,shock_description,methodology,comment
+EQ_MOD,Equity Shock Moderate,equity,listed_equity,-0.1,0,0,Correction modérée du marché actions.,impact = poids actions x choc actions,Scénario indicatif.
+EQ_SEV,Equity Shock Severe,equity,listed_equity,-0.2,0,0,Correction sévère du marché actions.,impact = poids actions x choc actions,Scénario indicatif.
+RATE_100,Sovereign Rate Up 100 bps,rate,"government_bond,corporate_bond",0.0,100,0,Hausse parallèle des taux souverains.,impact obligataire = - duration x choc taux x exposition,Approximation de premier ordre.
+RATE_200,Sovereign Rate Up 200 bps,rate,"government_bond,corporate_bond",0.0,200,0,Hausse parallèle forte des taux souverains.,impact obligataire = - duration x choc taux x exposition,Approximation de premier ordre.
+SPREAD_100,Corporate Spread Widening 100 bps,spread,corporate_bond,0.0,0,100,Élargissement des spreads corporate.,impact corporate = - duration x choc spread x exposition,Approximation de premier ordre.
+SPREAD_200,Corporate Spread Widening 200 bps,spread,corporate_bond,0.0,0,200,Élargissement fort des spreads corporate.,impact corporate = - duration x choc spread x exposition,Approximation de premier ordre.
+COMBINED,Combined Market Stress,combined,"listed_equity,government_bond,corporate_bond",-0.2,100,100,"Choc combiné actions, taux et spreads.",somme des chocs actions et duration obligataire,Scénario prudentiel simplifié.
+LIQ_HAIRCUT,Liquidity Conservative Haircut,liquidity,"listed_equity,government_bond,corporate_bond",-0.05,0,0,Haircut prudentiel indicatif de liquidité.,"actions -5 %, corporate -2 %, État -1 %","Haircut indicatif, non valorisation officielle."
+REG_BUFFER,Regulatory Buffer Scenario,regulatory,none,0.0,0,0,Contrôle de marge réglementaire sans choc de marché.,contrôle des marges sur contraintes testables,Pas de choc de valorisation.

@@ -1,0 +1,16 @@
+portfolio_name,tested_constraints_count,untested_constraints_count,breaches_count,regulatory_status,comments
+Current_Portfolio,12,4,0,COMPLIANT_WITH_UNTESTED_CONSTRAINTS,Aucune violation détectée sur les contraintes testables ; certaines contraintes restent non testées faute de données détaillées.
+Max_Return,12,4,0,COMPLIANT_WITH_UNTESTED_CONSTRAINTS,Aucune violation détectée sur les contraintes testables ; certaines contraintes restent non testées faute de données détaillées.
+Max_Sharpe,12,4,0,COMPLIANT_WITH_UNTESTED_CONSTRAINTS,Aucune violation détectée sur les contraintes testables ; certaines contraintes restent non testées faute de données détaillées.
+MeanVariance_TurnoverPenalty,12,4,0,COMPLIANT_WITH_UNTESTED_CONSTRAINTS,Aucune violation détectée sur les contraintes testables ; certaines contraintes restent non testées faute de données détaillées.
+Mean_CVaR_95,12,4,0,COMPLIANT_WITH_UNTESTED_CONSTRAINTS,Aucune violation détectée sur les contraintes testables ; certaines contraintes restent non testées faute de données détaillées.
+Mean_Variance_lambda_10,12,4,0,COMPLIANT_WITH_UNTESTED_CONSTRAINTS,Aucune violation détectée sur les contraintes testables ; certaines contraintes restent non testées faute de données détaillées.
+Mean_Variance_lambda_2,12,4,0,COMPLIANT_WITH_UNTESTED_CONSTRAINTS,Aucune violation détectée sur les contraintes testables ; certaines contraintes restent non testées faute de données détaillées.
+Mean_Variance_lambda_20,12,4,0,COMPLIANT_WITH_UNTESTED_CONSTRAINTS,Aucune violation détectée sur les contraintes testables ; certaines contraintes restent non testées faute de données détaillées.
+Mean_Variance_lambda_5,12,4,0,COMPLIANT_WITH_UNTESTED_CONSTRAINTS,Aucune violation détectée sur les contraintes testables ; certaines contraintes restent non testées faute de données détaillées.
+Minimum_Variance,12,4,0,COMPLIANT_WITH_UNTESTED_CONSTRAINTS,Aucune violation détectée sur les contraintes testables ; certaines contraintes restent non testées faute de données détaillées.
+Monte_Carlo_Max_Return,12,4,0,COMPLIANT_WITH_UNTESTED_CONSTRAINTS,Aucune violation détectée sur les contraintes testables ; certaines contraintes restent non testées faute de données détaillées.
+Monte_Carlo_Max_Sharpe,12,4,0,COMPLIANT_WITH_UNTESTED_CONSTRAINTS,Aucune violation détectée sur les contraintes testables ; certaines contraintes restent non testées faute de données détaillées.
+Monte_Carlo_Min_Volatility,12,4,0,COMPLIANT_WITH_UNTESTED_CONSTRAINTS,Aucune violation détectée sur les contraintes testables ; certaines contraintes restent non testées faute de données détaillées.
+MultiCriteria_Recommended_Portfolio,12,4,0,COMPLIANT_WITH_UNTESTED_CONSTRAINTS,Aucune violation détectée sur les contraintes testables ; certaines contraintes restent non testées faute de données détaillées.
+Risk_Parity,12,4,0,COMPLIANT_WITH_UNTESTED_CONSTRAINTS,Aucune violation détectée sur les contraintes testables ; certaines contraintes restent non testées faute de données détaillées.

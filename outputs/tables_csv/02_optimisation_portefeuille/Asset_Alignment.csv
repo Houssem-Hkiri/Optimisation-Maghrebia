@@ -1,0 +1,22 @@
+asset_id,asset_name,present_in_portfolio,present_in_mu_APT,present_in_Sigma_APT,present_in_returns,present_in_constraints,final_status
+AMEN_BANK,AMEN BANK,True,True,True,True,True,OK
+ATTIJARI_BANK,ATTIJARI BANK,True,True,True,True,True,OK
+BIAT,BIAT,True,True,True,True,True,OK
+BT,BT,True,True,True,True,True,OK
+BTA_7_4_02_2030,"BTA 7,4% 02/2030",True,True,True,True,True,OK
+BTA_7_5_12_2028,"BTA 7,5% 12/2028",True,True,True,True,True,OK
+CITY_CARS,CITY CARS,True,True,True,True,True,OK
+DELICE_HOLDING,DELICE HOLDING,True,True,True,True,True,OK
+EMPRUNT_NATIONAL_2021_2EME_TRANCHE,EMPRUNT NATIONAL 2021 2ème tranche,True,True,True,True,True,OK
+EMPRUNT_NATIONAL_2022_3EME_TRANCHE_10_ANS,EMPRUNT NATIONAL 2022 3ème tranche 10 ANS,True,True,True,True,True,OK
+EMPRUNT_NATIONAL_2023_4EME_TRANCHE_CATEGORIE_C,EMPRUNT NATIONAL 2023 4ème tranche  Catégorie C,True,True,True,True,True,OK
+ENNAKL,ENNAKL,True,True,True,True,True,OK
+EO_ATL_2025_2,EO ATL 2025-2,True,True,True,True,True,OK
+PGH,PGH,True,True,True,True,True,OK
+TN0003100872,EO BNA SUB 2021-1,True,True,True,True,True,OK
+TN0007310568,E.O HL 2020-03,True,True,True,True,True,OK
+TN8DSPQCBC06,EO ATL 2022-1,True,True,True,True,True,OK
+TNDE9EH7SA12,EO AB SUB 2023-2,True,True,True,True,True,OK
+TNHFN9X6ARP3,EO ADVANS 2022-1,True,True,True,True,True,OK
+TNL7VQZVHR54,EO HL 2023-1,True,True,True,True,True,OK
+TNYGOCQ2WZX6,EO BH LEASING 2023-1,True,True,True,True,True,OK

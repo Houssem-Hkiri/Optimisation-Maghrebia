@@ -1,0 +1,25 @@
+[project]
+name = "pfe-maghrebia-quant"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+  "pandas",
+  "numpy",
+  "scipy",
+  "plotly",
+  "openpyxl",
+  "nbformat",
+  "nbconvert",
+  "ipykernel",
+  "pytest",
+  "requests",
+  "beautifulsoup4",
+  "playwright",
+  "pdfplumber",
+  "pypdf",
+  "tqdm",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

@@ -1,0 +1,7 @@
+file_name,path,exists
+apt_expected_returns_2025.csv,data\exports\optimization_inputs\apt_expected_returns_2025.csv,True
+apt_covariance_matrix_2025.csv,data\exports\optimization_inputs\apt_covariance_matrix_2025.csv,True
+apt_betas_2025.csv,data\exports\optimization_inputs\apt_betas_2025.csv,True
+apt_factors_weekly_2025.csv,data\exports\optimization_inputs\apt_factors_weekly_2025.csv,True
+apt_diagnostics_2025.csv,data\exports\optimization_inputs\apt_diagnostics_2025.csv,True
+diagnostic_pre_optimisation_2025.xlsx,data\exports\diagnostic_pre_optimisation_2025.xlsx,True

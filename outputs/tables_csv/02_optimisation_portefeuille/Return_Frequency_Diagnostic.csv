@@ -1,0 +1,2 @@
+RETURN_FREQUENCY,PERIODS_PER_YEAR,n_observations,start_date,end_date,median_gap_days,frequency_flag,comment
+daily,252,246,2025-01-03,2025-12-31,1.0,FREQUENCY_INFERRED_DAILY,Fréquence détectée à partir de la matrice de rendements effectivement utilisée.

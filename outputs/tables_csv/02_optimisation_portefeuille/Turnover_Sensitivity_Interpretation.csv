@@ -1,0 +1,5 @@
+turnover_limit,nb_feasible_models,nb_infeasible_models,best_model,best_sharpe,best_cvar,interpretation
+0.2,5,0,Minimum_Variance,1.9683082426116747,0.001023067671388748,Le seuil de 20 % semble trop restrictif pour générer une réallocation significative.
+0.3,5,0,Max_Sharpe,3.4851017907674424,0.0005027289888268357,La limite testée fournit des solutions comparables et doit être arbitrée selon la gouvernance de réallocation.
+0.4,5,0,Max_Sharpe,7.701339760687973,0.0001304639304100209,"L’assouplissement du turnover améliore mécaniquement le score, mais peut produire des allocations plus sensibles aux hypothèses APT."
+0.5,5,0,Max_Sharpe,10.957803310142975,0.0,"L’assouplissement du turnover améliore mécaniquement le score, mais peut produire des allocations plus sensibles aux hypothèses APT."

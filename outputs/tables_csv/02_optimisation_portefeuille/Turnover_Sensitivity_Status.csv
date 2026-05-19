@@ -1,0 +1,21 @@
+turnover_limit,model_name,solver_status,final_status,turnover_realized,turnover_constraint_respected,comment
+0.2,Minimum_Variance,FALLBACK_CURRENT_PORTFOLIO,FEASIBLE_CURRENT_PORTFOLIO,0.0,True,"Poids identiques au portefeuille courant : turnover nul, donc limite positive respecte."
+0.2,Max_Sharpe,FALLBACK_CURRENT_PORTFOLIO,FEASIBLE_CURRENT_PORTFOLIO,0.0,True,"Poids identiques au portefeuille courant : turnover nul, donc limite positive respecte."
+0.2,Mean_CVaR_95,FALLBACK_CURRENT_PORTFOLIO,FEASIBLE_CURRENT_PORTFOLIO,0.0,True,"Poids identiques au portefeuille courant : turnover nul, donc limite positive respecte."
+0.2,Risk_Parity,FALLBACK_CURRENT_PORTFOLIO,FEASIBLE_CURRENT_PORTFOLIO,0.0,True,"Poids identiques au portefeuille courant : turnover nul, donc limite positive respecte."
+0.2,Recommended_Scoring,OPTIMIZED_FEASIBLE,OPTIMIZED_FEASIBLE,0.0,True,Portefeuille retenu par scoring parmi les solutions disponibles.
+0.3,Minimum_Variance,OPTIMIZED_FEASIBLE,OPTIMIZED_FEASIBLE,0.29999956800021194,True,Solution optimise respectant la limite de turnover.
+0.3,Max_Sharpe,OPTIMIZED_FEASIBLE,OPTIMIZED_FEASIBLE,0.29999999950410816,True,Solution optimise respectant la limite de turnover.
+0.3,Mean_CVaR_95,OPTIMIZED_FEASIBLE,OPTIMIZED_FEASIBLE,0.2999999876666527,True,Solution optimise respectant la limite de turnover.
+0.3,Risk_Parity,OPTIMIZED_FEASIBLE,OPTIMIZED_FEASIBLE,0.29999999999999993,True,Solution optimise respectant la limite de turnover.
+0.3,Recommended_Scoring,OPTIMIZED_FEASIBLE,OPTIMIZED_FEASIBLE,0.2999999876666527,True,Portefeuille retenu par scoring parmi les solutions disponibles.
+0.4,Minimum_Variance,OPTIMIZED_FEASIBLE,OPTIMIZED_FEASIBLE,0.39999701338621135,True,Solution optimise respectant la limite de turnover.
+0.4,Max_Sharpe,OPTIMIZED_FEASIBLE,OPTIMIZED_FEASIBLE,0.3999999860917639,True,Solution optimise respectant la limite de turnover.
+0.4,Mean_CVaR_95,OPTIMIZED_FEASIBLE,OPTIMIZED_FEASIBLE,0.3999999973599408,True,Solution optimise respectant la limite de turnover.
+0.4,Risk_Parity,OPTIMIZED_FEASIBLE,OPTIMIZED_FEASIBLE,0.40000000000000013,True,Solution optimise respectant la limite de turnover.
+0.4,Recommended_Scoring,OPTIMIZED_FEASIBLE,OPTIMIZED_FEASIBLE,0.3999999973599408,True,Portefeuille retenu par scoring parmi les solutions disponibles.
+0.5,Minimum_Variance,OPTIMIZED_FEASIBLE,OPTIMIZED_FEASIBLE,0.49999016775824845,True,Solution optimise respectant la limite de turnover.
+0.5,Max_Sharpe,OPTIMIZED_FEASIBLE,OPTIMIZED_FEASIBLE,0.49999999970925063,True,Solution optimise respectant la limite de turnover.
+0.5,Mean_CVaR_95,OPTIMIZED_FEASIBLE,OPTIMIZED_FEASIBLE,0.4999999861057776,True,Solution optimise respectant la limite de turnover.
+0.5,Risk_Parity,OPTIMIZED_FEASIBLE,OPTIMIZED_FEASIBLE,0.5,True,Solution optimise respectant la limite de turnover.
+0.5,Recommended_Scoring,OPTIMIZED_FEASIBLE,OPTIMIZED_FEASIBLE,0.49999016775824845,True,Portefeuille retenu par scoring parmi les solutions disponibles.

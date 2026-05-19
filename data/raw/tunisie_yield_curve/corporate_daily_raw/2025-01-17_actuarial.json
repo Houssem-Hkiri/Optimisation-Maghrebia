@@ -1,0 +1,10 @@
+{
+  "request_url": "https://www.tunisiayieldcurve.tn/apiCorporateSector/api/Yield/ReportActuariel?DATES=17/01/2025&TYPE_SECTEUR=LEASING",
+  "download_url": "https://www.tunisiayieldcurve.tn/CorporateCurveSector/upload/20260513121651.xlsx",
+  "payload": {
+    "success": "True",
+    "Message": "",
+    "fileName": "20260513121651.xlsx",
+    "fileChemin": ""
+  }
+}

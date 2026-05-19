@@ -1,0 +1,2 @@
+check_name,max_sharpe_portfolio_id,min_volatility_portfolio_id,same_weights,max_sharpe_value,min_volatility_value,status,comment
+MONTE_CARLO_MAX_SHARPE_VS_MIN_VOLATILITY,21862,21862,True,2.255055000280236,0.013576003134828821,WARNING,"Monte Carlo Max Sharpe et Min Volatility identiques : résultat possible sous contraintes fortes, mais vérifier."

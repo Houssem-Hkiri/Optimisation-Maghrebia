@@ -1,0 +1,10 @@
+item,value,comment
+total_portfolio_value,509032582.0402451,Valeur totale du portefeuille utilisée comme base économique.
+optimizable_pocket_value,330864900.90949,Poche arbitrable réallouée par les modèles.
+frozen_pocket_value,178167681.13075513,Poche non optimisable conservée à sa valeur actuelle.
+technical_provisions,261164044.33557004,Dénominateur réglementaire disponible dans les données.
+tested_constraints_count,16,Nombre de contraintes testables distinctes.
+untested_constraints_count,4,Contraintes isolées faute de données détaillées.
+breaches_count,0,Violations détectées sur contraintes testables.
+warnings_count,61,Warnings incluant les contraintes non testées.
+regulatory_conclusion,Aucune violation n’a été détectée sur les contraintes testables. Certaines contraintes restent non testées faute de données détaillées ; cette conclusion ne constitue pas une certification réglementaire exhaustive.,"Conclusion prudente, sans certification réglementaire exhaustive."
