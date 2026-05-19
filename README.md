@@ -1,4 +1,4 @@
-# pfe-maghrebia-quant
+# pfe-maghrebia
 
 Diagnostic pré-optimisation du portefeuille Maghrebia.
 
