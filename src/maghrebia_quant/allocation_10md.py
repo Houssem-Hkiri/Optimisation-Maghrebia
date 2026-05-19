@@ -473,11 +473,11 @@ def solve_slsqp_model(
     config: AdditionalAllocationConfig,
     required_return: float | None = None,
 ) -> dict[str, object]:
-    """Résoudre Risk Parity. Max Sharpe est volontairement exclu du notebook 03."""
+    """Résoudre Risk Parity pour l'allocation additionnelle."""
 
     if objective_name != "risk_parity":
         raise ValueError(
-            f"Objectif SLSQP non supporté : {objective_name}. Max Sharpe est exclu conformément à la consigne du notebook 03."
+            f"Objectif SLSQP non supporté : {objective_name}."
         )
     universe = data["universe"]
     bounds = _weight_bounds(universe, float(data["technical_provisions"]), config)[0]
@@ -672,7 +672,7 @@ def evaluate_model(model: str, weights: np.ndarray, data: dict[str, object], sta
         "Gap_Total": r_total_final - state["TARGET_RETURN"],
         "Target_Opt_Reached": target_opt,
         "Target_Total_Reached": target_total,
-        "Target_Status": "PASSED" if target_opt == "YES" and target_total == "YES" else "TARGET_NOT_REACHED",
+        "Target_Status": "TARGET_REACHED" if target_opt == "YES" and target_total == "YES" else "TARGET_NOT_REACHED",
         "Regulatory_Status": regulatory_status,
         "Comment": "",
         "Warnings": ";".join(warnings_list) if warnings_list else "OK",
@@ -744,7 +744,7 @@ def asset_control_table(data: dict[str, object]) -> pd.DataFrame:
 
 
 def _solve_models(data: dict[str, object], state: dict[str, float], config: AdditionalAllocationConfig) -> list[dict[str, object]]:
-    """Exécuter les modèles déterministes (Max Sharpe volontairement exclu)."""
+    """Exécuter les modèles déterministes retenus pour le notebook 03."""
 
     max_return = solve_cvx_model("Max_Return_Constraints", "max_return", data, config, None)
     max_return_value = float(data["mu"].to_numpy(float) @ max_return["weights"]) if max_return["success"] else np.nan
@@ -844,7 +844,7 @@ def generate_monte_carlo(data: dict[str, object], state: dict[str, float], confi
                 "Gap_Total": float(r_total[local_idx] - state["TARGET_RETURN"]),
                 "Target_Opt_Reached": "YES" if r_opt[local_idx] >= state["TARGET_RETURN"] - 1e-10 else "NO",
                 "Target_Total_Reached": "YES" if r_total[local_idx] >= state["TARGET_RETURN"] - 1e-10 else "NO",
-                "Target_Status": "PASSED" if r_opt[local_idx] >= state["TARGET_RETURN"] - 1e-10 and r_total[local_idx] >= state["TARGET_RETURN"] - 1e-10 else "TARGET_NOT_REACHED",
+                "Target_Status": "TARGET_REACHED" if r_opt[local_idx] >= state["TARGET_RETURN"] - 1e-10 and r_total[local_idx] >= state["TARGET_RETURN"] - 1e-10 else "TARGET_NOT_REACHED",
                 "Regulatory_Status": "PASSED",
                 "Comment": "Simulation Monte Carlo admissible.",
                 "Warnings": ";".join(warning_parts) if warning_parts else "OK",
@@ -1384,9 +1384,29 @@ def run_scenario_allocation(
     mc_scoring = build_scoring(mc)
     mc_selected = selected_monte_carlo(mc, mc_scoring)
     mc_selected["Scenario"] = scenario_name
+    mc_selected_models = mc_selected.copy()
+    mc_selected_models["Original_Model"] = mc_selected_models["Model"]
+    mc_selected_models["Model"] = mc_selected_models["Selection"]
+    mc_selected_models["Solver_Status"] = "MONTE_CARLO_SELECTED"
+    mc_selected_models["Comment"] = "Portefeuille Monte Carlo retenu selon le critère indiqué."
+
+    selected_weights_by_model: dict[str, np.ndarray] = {}
+    asset_index = {asset: i for i, asset in enumerate(scenario_data["universe"]["asset_id"])}
+    for selected in mc_selected.itertuples():
+        selected_weights = np.zeros(len(scenario_data["universe"]))
+        for row in mc_weights.loc[mc_weights["portfolio_id"].eq(int(selected.portfolio_id))].itertuples():
+            selected_weights[asset_index[row.asset_id]] = row.weight
+        selected_weights = clean_weights(selected_weights)
+        selected_weights_by_model[str(selected.Selection)] = selected_weights
+        selected_alloc = allocation_table(str(selected.Selection), selected_weights, scenario_data, config)
+        selected_alloc["Scenario"] = scenario_name
+        allocation_rows.append(selected_alloc)
+        selected_reg = _regulatory_table(scenario_data, selected_weights, config, str(selected.Selection))
+        selected_reg["Scenario"] = scenario_name
+        regulatory_rows.append(selected_reg)
 
     scoring_input = pd.concat(
-        [deterministic, mc_selected.rename(columns={"Selection": "Selection_Label"})],
+        [deterministic, mc_selected_models],
         ignore_index=True,
         sort=False,
     )
@@ -1394,6 +1414,8 @@ def run_scenario_allocation(
     scoring["Scenario"] = scenario_name
 
     recommended_model = str(scoring.loc[scoring["Recommended"], "Model"].iloc[0])
+    weights_by_model.update(selected_weights_by_model)
+    deterministic = pd.concat([deterministic, mc_selected_models], ignore_index=True, sort=False)
     if recommended_model in weights_by_model:
         recommended_weights = weights_by_model[recommended_model]
     else:
@@ -1581,9 +1603,13 @@ def _build_recommendation_table(by_scenario: dict[str, dict[str, object]]) -> pd
     """Tableau de recommandation finale par scénario."""
 
     rows = []
+    central_weights = by_scenario["APT_Central"]["recommended_weights"]
     for scenario in SCENARIO_ORDER:
         scn = by_scenario[scenario]
         reco = scn["results_models"].loc[scn["results_models"]["Model"].eq(scn["recommended_model"])].iloc[0]
+        distance_l1 = float(np.sum(np.abs(scn["recommended_weights"] - central_weights)))
+        turnover_vs_central = 0.5 * distance_l1
+        stability_score = max(0.0, 1.0 - turnover_vs_central)
         rows.append({
             "Scenario": scenario,
             "Recommended_Model": scn["recommended_model"],
@@ -1598,8 +1624,11 @@ def _build_recommendation_table(by_scenario: dict[str, dict[str, object]]) -> pd
             "Regulatory_Status": reco["Regulatory_Status"],
             "Volatility_additional": reco["Volatility_additional"],
             "CVaR_95": reco["CVaR_95"],
+            "Distance_L1_vs_Central": distance_l1,
+            "Turnover_vs_Central": turnover_vs_central,
+            "Stability_Score": stability_score,
             "Main_Reason": (
-                "Compromis rendement-risque-diversification-conformité retenu par le scoring multicritère."
+                "Compromis rendement, volatilité, CVaR, diversification, concentration, conformité, qualité APT et stabilité inter-scénarios."
             ),
             "Institutional_Comment": (
                 "Maximum Return fournit la borne supérieure de rendement, mais n'est pas retenu comme "
@@ -1624,9 +1653,52 @@ def _build_status_table(by_scenario: dict[str, dict[str, object]]) -> pd.DataFra
             "Recommended_Model": scn["recommended_model"],
             "Technical_Status": "PASSED",
             "Target_Status": "TARGET_REACHED" if target_reached else "TARGET_NOT_REACHED",
-            "Global_Status": "PASSED" if target_reached else "ANALYSIS_VALID_TARGET_NOT_REACHED",
+            "Final_Status": "PASSED" if target_reached else "ANALYSIS_VALID_TARGET_NOT_REACHED",
         })
     return pd.DataFrame(rows)
+
+
+def _build_final_decision_table(by_scenario: dict[str, dict[str, object]]) -> pd.DataFrame:
+    """Table finale Scenario x Model demandée pour la décision PFE."""
+
+    frames = []
+    for scenario in SCENARIO_ORDER:
+        scn = by_scenario[scenario]
+        df = scn["results_models"].copy()
+        df["Scenario"] = scenario
+        df["Recommended"] = df["Model"].eq(scn["recommended_model"])
+        frames.append(df)
+    out = pd.concat(frames, ignore_index=True)
+    out["R_Additional_10MD"] = out["R_additional"]
+    out["Target_Status"] = np.where(
+        out["Target_Opt_Reached"].eq("YES") & out["Target_Total_Reached"].eq("YES"),
+        "TARGET_REACHED",
+        "TARGET_NOT_REACHED",
+    )
+    out["Comment"] = np.where(
+        out["Model"].eq("Max_Return_Constraints"),
+        "Scénario agressif / borne supérieure de rendement.",
+        np.where(
+            out["Recommended"],
+            "Portefeuille retenu par scoring multicritère rendement-risque-diversification-conformité.",
+            out["Comment"].fillna("Modèle conservé pour comparaison."),
+        ),
+    )
+    columns = [
+        "Scenario",
+        "Model",
+        "R_Additional_10MD",
+        "R_opt_final",
+        "R_total_final",
+        "Target_Return",
+        "Gap_Opt",
+        "Gap_Total",
+        "Target_Status",
+        "Regulatory_Status",
+        "Recommended",
+        "Comment",
+    ]
+    return out[columns]
 
 
 def _build_hypotheses_table(
@@ -1657,7 +1729,7 @@ def _build_hypotheses_table(
         ("TARGET_RETURN", central_state["TARGET_RETURN"], "TSR + 4 % (proxy de rendement financier attendu)"),
         ("R_FIXED_CURRENT_ASSUMPTION", 0.0, "Poche non optimisable figée à rendement nul faute de modèle validé"),
         ("APT scénarios utilisés", "APT_Prudent; APT_Central; APT_Optimistic", "Trois scénarios pour tester la robustesse"),
-        ("Modèles d'allocation", "Prorata; MinVar; MeanVar(2/5/10); MaxReturn; MeanCVaR; RiskParity; MonteCarlo×4", "Max Sharpe volontairement exclu"),
+        ("Modèles d'allocation", "Prorata; Minimum Variance; Mean-Variance; Maximum Return; Mean-CVaR; Risk Parity; Monte Carlo Max Return; Monte Carlo Min Volatility; Monte Carlo Min CVaR; Monte Carlo Best Scoring", "Maximum Return est un scénario agressif / borne supérieure de rendement."),
     ]
     return pd.DataFrame(rows, columns=["Indicateur", "Valeur", "Interprétation"])
 
@@ -1846,11 +1918,11 @@ def _build_final_control_multi(
     technical_status = "PASSED" if technical_ok else "FAILED"
     target_status = "TARGET_REACHED" if all_target_reached else "TARGET_NOT_REACHED"
     if not technical_ok:
-        global_status = "FAILED"
+        final_status = "TECHNICAL_CHECK_FAILED"
     elif all_target_reached:
-        global_status = "PASSED"
+        final_status = "PASSED"
     else:
-        global_status = "ANALYSIS_VALID_TARGET_NOT_REACHED"
+        final_status = "ANALYSIS_VALID_TARGET_NOT_REACHED"
     rows = [
         ("Comptabilité V_TOTAL = V_OPT + V_FIXED", accounting_ok, "PASSED" if accounting_ok else "FAILED"),
         ("Covariance PSD", sigma_ok, "PASSED" if sigma_ok else "FAILED"),
@@ -1861,7 +1933,7 @@ def _build_final_control_multi(
         ("Excel exporté", excel_exported, "YES" if excel_exported else "NO"),
         ("Technical_Status", technical_ok, technical_status),
         ("Target_Status", all_target_reached, target_status),
-        ("Statut global", technical_ok, global_status),
+        ("Final_Status", technical_ok, final_status),
     ]
     return pd.DataFrame(rows, columns=["Contrôle", "Passed", "Status"])
 
@@ -1890,6 +1962,7 @@ def run_multi_scenario_allocation(
     impact_opt, impact_total = _build_impact_tables(cross_results, data, by_scenario)
     recommendation_table = _build_recommendation_table(by_scenario)
     status_table = _build_status_table(by_scenario)
+    final_decision_table = _build_final_decision_table(by_scenario)
     sensitivity_table = _build_sensitivity_multi(data, by_scenario, config)
     warnings_table = _build_warnings_multi(data, by_scenario)
     conclusion_table = _build_conclusion_multi(data, by_scenario, config)
@@ -1938,6 +2011,7 @@ def run_multi_scenario_allocation(
         "14_Final_Recommendation": recommendation_table,
         "14b_Status": status_table,
         "15_Conclusion": conclusion_table,
+        "16_Final_Table": final_decision_table,
         "Warnings_Quality": warnings_table,
         "Controle_Final": final_control,
         "frequency_control_table": pd.DataFrame([data["frequency_control"]]),
@@ -1964,10 +2038,15 @@ def export_multi_scenario_analysis(
         "09_Impact_Total_Portfolio",
         "10_Regulatory_Checks",
         "11_Monte_Carlo",
+        "11b_Monte_Carlo_Selected",
         "12_Scoring",
         "13_Sensitivity_Analysis",
         "14_Final_Recommendation",
+        "14b_Status",
         "15_Conclusion",
+        "16_Final_Table",
+        "Warnings_Quality",
+        "Controle_Final",
     ]
     with pd.ExcelWriter(path, engine="openpyxl") as writer:
         for sheet in sheets:
