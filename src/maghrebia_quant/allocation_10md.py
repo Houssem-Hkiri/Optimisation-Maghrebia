@@ -1266,14 +1266,19 @@ def export_analysis(result: dict[str, object], output_path: str | Path) -> Path:
 # Section multi-scénarios APT (notebook 03 final)
 # =========================================================================
 
-SCENARIO_ORDER = ("APT_Prudent", "APT_Central", "APT_Optimistic")
+SCENARIO_ORDER = [
+    "APT_Prudent",
+    "APT_Central",
+    "APT_Optimistic",
+    "Historical_Raw",
+]
 
 
 def _load_apt_scenarios_for_allocation(
     project_dir: str | Path,
     assets: list[str],
 ) -> tuple[dict[str, pd.Series], pd.DataFrame]:
-    """Charger les trois scénarios APT (prudent/central/optimiste) alignés sur l'univers."""
+    """Charger les scénarios de rendement attendu alignés sur l'univers."""
 
     project = Path(project_dir)
     scenario_path = project / "data" / "processed" / "apt_expected_returns_scenarios.csv"
@@ -1294,6 +1299,7 @@ def _load_apt_scenarios_for_allocation(
         "mu_apt_prudent": ["mu_apt_prudent", "APT_Return_Prudent", "prudent"],
         "mu_apt_central": ["mu_apt_central", "APT_Return_Central", "central"],
         "mu_apt_optimistic": ["mu_apt_optimistic", "APT_Return_Optimistic", "optimistic", "optimiste"],
+        "mu_historical_raw": ["mu_historical_raw", "Historical_Raw", "historical_raw"],
     }
     resolved: dict[str, str] = {}
     for canonical, aliases in column_aliases.items():
@@ -1305,6 +1311,8 @@ def _load_apt_scenarios_for_allocation(
             if canonical in resolved:
                 break
         if canonical not in resolved:
+            if canonical == "mu_historical_raw":
+                raise ValueError("Historical_Raw scenario missing from notebook 01 exports.")
             raise ValueError(f"Colonne scénario APT introuvable pour {canonical}.")
     df = df.set_index(asset_col)[list(resolved.values())].rename(
         columns={v: k for k, v in resolved.items()}
@@ -1316,6 +1324,7 @@ def _load_apt_scenarios_for_allocation(
         "APT_Prudent": df["mu_apt_prudent"].astype(float),
         "APT_Central": df["mu_apt_central"].astype(float),
         "APT_Optimistic": df["mu_apt_optimistic"].astype(float),
+        "Historical_Raw": df["mu_historical_raw"].astype(float),
     }
     audit = df.reset_index().rename(columns={asset_col: "asset_id"})
     return scenarios, audit
@@ -1460,16 +1469,20 @@ def run_scenario_allocation(
     }
 
 
-def _build_apt_scenarios_table(
+def _build_return_scenarios_table(
     data: dict[str, object],
     audit: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Construire le tableau APT_Scenarios avec deltas par actif."""
+    """Construire le tableau Return_Scenarios avec deltas par actif."""
 
     universe = data["universe"][["asset_id", "asset_name", "asset_class"]]
     df = audit.merge(universe, on="asset_id", how="left").rename(columns={"asset_id": "Asset", "asset_class": "Asset_Class"})
     df["Delta_Prudent_vs_Central"] = df["mu_apt_prudent"] - df["mu_apt_central"]
     df["Delta_Optimistic_vs_Central"] = df["mu_apt_optimistic"] - df["mu_apt_central"]
+    df["Delta_Historical_vs_Central"] = df["mu_historical_raw"] - df["mu_apt_central"]
+    df["Historical_Raw_Comment"] = (
+        "Scénario historique brut descriptif ; non recommandé comme hypothèse prospective."
+    )
     columns = [
         "Asset",
         "asset_name",
@@ -1477,8 +1490,11 @@ def _build_apt_scenarios_table(
         "mu_apt_prudent",
         "mu_apt_central",
         "mu_apt_optimistic",
+        "mu_historical_raw",
         "Delta_Prudent_vs_Central",
         "Delta_Optimistic_vs_Central",
+        "Delta_Historical_vs_Central",
+        "Historical_Raw_Comment",
     ]
     return df[columns]
 
@@ -1495,7 +1511,7 @@ def _build_current_returns_by_scenario(
         rows.append({
             "Scenario": scenario,
             "R_OPT_CURRENT": state["R_OPT_CURRENT"],
-            "R_TOTAL_CURRENT_OR_PROXY": state["R_TOTAL_CURRENT"],
+            "R_TOTAL_MODELLED_PROXY": state["R_TOTAL_CURRENT"],
             "Comment": (
                 "Rendement APT pondéré par les poids actuels de la poche optimisable. "
                 "Le portefeuille total utilise le rendement de la poche comme proxy financier "
@@ -1627,6 +1643,12 @@ def _build_recommendation_table(by_scenario: dict[str, dict[str, object]]) -> pd
             "Distance_L1_vs_Central": distance_l1,
             "Turnover_vs_Central": turnover_vs_central,
             "Stability_Score": stability_score,
+            "Scenario_Role": (
+                "Référence principale" if scenario == "APT_Central"
+                else "Comparaison historique brute" if scenario == "Historical_Raw"
+                else "Sensibilité APT"
+            ),
+            "Primary_Recommendation_Scenario": scenario == "APT_Central",
             "Main_Reason": (
                 "Compromis rendement, volatilité, CVaR, diversification, concentration, conformité, qualité APT et stabilité inter-scénarios."
             ),
@@ -1728,7 +1750,7 @@ def _build_hypotheses_table(
         ("TSR_ASSUMPTION", data["tsr"], f"{data['tsr_source']} — à synchroniser avec le notebook 02"),
         ("TARGET_RETURN", central_state["TARGET_RETURN"], "TSR + 4 % (proxy de rendement financier attendu)"),
         ("R_FIXED_CURRENT_ASSUMPTION", 0.0, "Poche non optimisable figée à rendement nul faute de modèle validé"),
-        ("APT scénarios utilisés", "APT_Prudent; APT_Central; APT_Optimistic", "Trois scénarios pour tester la robustesse"),
+        ("Scénarios de rendement utilisés", "APT_Prudent; APT_Central; APT_Optimistic; Historical_Raw", "APT_Central reste la référence principale; Historical_Raw est descriptif uniquement."),
         ("Modèles d'allocation", "Prorata; Minimum Variance; Mean-Variance; Maximum Return; Mean-CVaR; Risk Parity; Monte Carlo Max Return; Monte Carlo Min Volatility; Monte Carlo Min CVaR; Monte Carlo Best Scoring", "Maximum Return est un scénario agressif / borne supérieure de rendement."),
     ]
     return pd.DataFrame(rows, columns=["Indicateur", "Valeur", "Interprétation"])
@@ -1832,6 +1854,26 @@ def _build_warnings_multi(
         for row in scn["results_models"].itertuples():
             if isinstance(row.Warnings, str) and row.Warnings != "OK":
                 rows.append((scenario, f"MODEL_WARNING::{row.Model}", "WARNING", row.Warnings))
+    if "Historical_Raw" in by_scenario:
+        hist = by_scenario["Historical_Raw"]["mu"].astype(float)
+        central = by_scenario["APT_Central"]["mu"].astype(float)
+        mean_gap = float(hist.mean() - central.mean())
+        if mean_gap >= 0.02:
+            rows.append((
+                "Historical_Raw",
+                "HISTORICAL_RAW_OVER_OPTIMISTIC",
+                "WARNING",
+                f"Historical_Raw est supérieur à APT_Central en moyenne de {mean_gap:.2%}; scénario descriptif uniquement.",
+            ))
+        extreme = hist[hist > 0.30]
+        if not extreme.empty:
+            assets = ", ".join(extreme.index.astype(str).tolist()[:8])
+            rows.append((
+                "Historical_Raw",
+                "EXTREME_HISTORICAL_EXPECTED_RETURNS",
+                "WARNING",
+                f"{len(extreme)} actifs dépassent 30 % de rendement annualisé brut: {assets}.",
+            ))
     rows.append(("ALL", "FIXED_POCKET_RETURN_NOT_MODELLED", "WARNING", "La poche non optimisable est figée; son rendement attendu est supposé nul faute de modèle validé."))
     if data["sigma_repaired"]:
         rows.append(("ALL", "SIGMA_PSD_REPAIRED", "WARNING", f"Covariance corrigée; min eigenvalue avant correction={data['sigma_min_eig_before']:.3e}."))
@@ -1855,7 +1897,7 @@ def _build_conclusion_multi(
     points = [
         ("1", "Périmètre d'investissement", "Les 10 MD sont investis uniquement dans la poche optimisable (titres d'État, obligations corporate, actions cotées). La poche non optimisable reste figée."),
         ("2", "Niveaux d'impact", "L'impact est mesuré à deux niveaux : sur la poche optimisable et sur le portefeuille global."),
-        ("3", "Scénarios APT", "Les trois scénarios APT (Prudent, Central, Optimiste) sont testés pour vérifier la robustesse de l'allocation aux hypothèses de rendement."),
+        ("3", "Scénarios de rendement", "Les scénarios APT_Prudent, APT_Central et APT_Optimistic sont complétés par Historical_Raw, qui reste un scénario historique brut descriptif et non une base prospective recommandée."),
         ("4", "Objectif ROE = TSR + 4 %", f"L'objectif ROE = TSR + 4 % est interprété comme proxy de rendement financier attendu (cible = {target_value:.2%}). Ce proxy ne remplace pas le ROE comptable."),
         ("5", "Effet de taille", f"L'objectif n'est pas nécessairement atteint, principalement à cause de l'effet de taille de l'enveloppe (poids dans la poche optimisable = {additional_share_opt:.2%}, dans le portefeuille total = {additional_share_total:.2%}), du rendement marginal requis sur les 10 MD, des contraintes de prudence et du niveau réaliste des rendements disponibles."),
         ("6", "Maximum Return", "Maximum Return est conservé comme borne supérieure agressive du rendement atteignable sous contraintes. Il n'est pas retenu comme recommandation institutionnelle."),
@@ -1869,7 +1911,9 @@ def _build_conclusion_multi(
         "Énoncé": (
             "L'allocation additionnelle de 10 MD améliore le rendement attendu de la poche optimisable et "
             "du portefeuille global, mais l'objectif ROE = TSR + 4 % reste difficile à atteindre sous les "
-            "hypothèses retenues. Cette non-atteinte s'explique principalement par l'effet de taille de "
+            "hypothèses retenues. APT_Central reste la référence principale; Historical_Raw peut produire "
+            "des résultats plus favorables mais demeure descriptif car il repose sur le rendement historique "
+            "annualisé brut. La non-atteinte s'explique principalement par l'effet de taille de "
             "l'enveloppe additionnelle : les 10 MD représentent une part limitée de la poche optimisable "
             "et une part encore plus faible du portefeuille total. Le rendement marginal requis sur cette "
             "enveloppe dépasse les rendements réalistes disponibles dans l'univers d'investissement. Le "
@@ -1942,7 +1986,7 @@ def run_multi_scenario_allocation(
     project_dir: str | Path,
     config: AdditionalAllocationConfig | None = None,
 ) -> dict[str, object]:
-    """Exécuter l'analyse 10 MD sur les trois scénarios APT et produire les agrégats du notebook 03."""
+    """Exécuter l'analyse 10 MD sur les scénarios de rendement et produire les agrégats du notebook 03."""
 
     config = config or AdditionalAllocationConfig()
     data = load_inputs(project_dir)
@@ -1955,7 +1999,7 @@ def run_multi_scenario_allocation(
     for scenario in SCENARIO_ORDER:
         by_scenario[scenario] = run_scenario_allocation(scenario, data, apt_scenarios[scenario], config)
 
-    apt_table = _build_apt_scenarios_table(data, apt_audit)
+    return_scenarios_table = _build_return_scenarios_table(data, apt_audit)
     current_returns_table = _build_current_returns_by_scenario(data, by_scenario)
     required_returns_table = _build_required_returns_by_scenario(by_scenario)
     cross_results = _build_cross_results(by_scenario)
@@ -1991,12 +2035,13 @@ def run_multi_scenario_allocation(
         "config": config,
         "scenarios": list(SCENARIO_ORDER),
         "by_scenario": by_scenario,
+        "mu_scenarios": apt_scenarios,
         "apt_scenarios": apt_scenarios,
         "apt_audit": apt_audit,
         "01_Hypotheses": hypotheses_table,
         "02_Current_Portfolio": current_portfolio_table,
         "03_Optimizable_Pocket": asset_control_table(data),
-        "04_APT_Scenarios": apt_table,
+        "04_Return_Scenarios": return_scenarios_table,
         "05_Required_Returns": required_returns_table,
         "05b_Current_Returns": current_returns_table,
         "06_Allocations_10MD": all_allocations,
@@ -2030,7 +2075,7 @@ def export_multi_scenario_analysis(
         "01_Hypotheses",
         "02_Current_Portfolio",
         "03_Optimizable_Pocket",
-        "04_APT_Scenarios",
+        "04_Return_Scenarios",
         "05_Required_Returns",
         "06_Allocations_10MD",
         "07_Model_Results_By_Scenario",
@@ -2054,6 +2099,14 @@ def export_multi_scenario_analysis(
             if "Recommended" in df.columns and df["Recommended"].dtype == bool:
                 df["Recommended"] = np.where(df["Recommended"], "YES", "NO")
             if sheet == "11_Monte_Carlo" and len(df) > 60_000:
-                df = df.head(60_000)
+                if "Scenario" in df.columns:
+                    per_scenario = max(1, 60_000 // max(1, df["Scenario"].nunique()))
+                    df = (
+                        df.groupby("Scenario", group_keys=False)
+                        .head(per_scenario)
+                        .reset_index(drop=True)
+                    )
+                else:
+                    df = df.head(60_000)
             df.to_excel(writer, sheet_name=sheet, index=False)
     return path
