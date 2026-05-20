@@ -165,7 +165,7 @@ def load_apt_optimization_inputs(project_dir: str | Path) -> dict[str, pd.DataFr
 
 
 def load_apt_mu_scenarios(project_dir: str | Path, assets: list[str]) -> tuple[dict[str, pd.Series], pd.DataFrame]:
-    """Load prudent, central and optimistic APT expected-return scenarios."""
+    """Load APT expected-return scenarios plus the historical raw comparison when available."""
 
     project = Path(project_dir)
     scenario_path = project / "data" / "processed" / "apt_expected_returns_scenarios.csv"
@@ -177,7 +177,10 @@ def load_apt_mu_scenarios(project_dir: str | Path, assets: list[str]) -> tuple[d
         df = pd.read_csv(legacy_scenario_path)
     elif fallback_path.exists():
         base = pd.read_csv(fallback_path)
-        df = base[["asset_id", "mu_apt_prudent", "mu_apt_central", "mu_apt_optimistic"]].copy()
+        scenario_cols = ["asset_id", "mu_apt_prudent", "mu_apt_central", "mu_apt_optimistic"]
+        if "mu_historical_raw" in base.columns:
+            scenario_cols.append("mu_historical_raw")
+        df = base[scenario_cols].copy()
     else:
         raise FileNotFoundError("Aucun export de scénarios APT n'est disponible.")
     asset_col = "asset_id" if "asset_id" in df.columns else "Asset"
@@ -195,7 +198,10 @@ def load_apt_mu_scenarios(project_dir: str | Path, assets: list[str]) -> tuple[d
         "APT_Central": df["mu_apt_central"].astype(float),
         "APT_Optimistic": df["mu_apt_optimistic"].astype(float),
     }
-    audit = df[required].reset_index().rename(columns={asset_col: "asset_id"})
+    if "mu_historical_raw" in df.columns and df["mu_historical_raw"].notna().all():
+        scenarios["Historical_Raw"] = df["mu_historical_raw"].astype(float)
+    audit_cols = [*required, *(["mu_historical_raw"] if "mu_historical_raw" in df.columns else [])]
+    audit = df[audit_cols].reset_index().rename(columns={asset_col: "asset_id"})
     return scenarios, audit
 
 
