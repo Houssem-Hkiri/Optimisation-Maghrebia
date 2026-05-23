@@ -123,6 +123,7 @@ def load_apt_optimization_inputs(project_dir: str | Path) -> dict[str, pd.DataFr
             "Asset_Metrics",
             "Final_Control",
             "Stress_Test_Summary",
+            "Portfolio_Metrics",
         ]
         if name in xl.sheet_names
     }
@@ -276,12 +277,36 @@ def build_context(data: dict[str, object], universe: pd.DataFrame, project_dir: 
 
     summary = data["Portfolio_Summary"].iloc[0]
     fixed = data["Non_Optimisable"].copy()
+    factors = data.get("factors", pd.DataFrame())
+    if isinstance(factors, pd.DataFrame) and "week_date" in factors.columns:
+        factor_dates = pd.Series(pd.to_datetime(factors["week_date"], errors="coerce")).dropna()
+    else:
+        factor_dates = pd.Series(dtype="datetime64[ns]")
+    median_factor_gap = float(factor_dates.sort_values().diff().dt.days.median()) if len(factor_dates) > 1 else np.nan
+    sigma = data["sigma"]
+    sigma_diag = np.diag(sigma.to_numpy(float))
+    annualization_ok = bool(
+        np.isfinite(median_factor_gap)
+        and 5 <= median_factor_gap <= 9
+        and np.isfinite(sigma_diag).all()
+        and float(np.nanmedian(sigma_diag)) > 0
+    )
+    annualization_checks = pd.DataFrame([{
+        "Check": "ANNUALIZATION_CONSISTENCY",
+        "Status": "PASSED" if annualization_ok else "FAILED",
+        "Return_Frequency": "daily",
+        "Return_Periods_Per_Year": 252,
+        "Sigma_APT_Annualization": "weekly_factor_covariance_x52_from_notebook_01",
+        "Median_Factor_Gap_Days": median_factor_gap,
+        "Comment": "Les rendements historiques restent quotidiens; Sigma_APT est l'export annuel du modèle APT hebdomadaire du notebook 01.",
+    }])
     return {
         "technical_provisions": technical_provisions_from_portfolio(project_dir),
         "total_value": float(summary["total_portfolio_value"]),
         "optimisable_value": float(summary["optimisable_value"]),
         "fixed": fixed,
         "universe": universe.copy(),
+        "annualization_checks": annualization_checks,
     }
 
 

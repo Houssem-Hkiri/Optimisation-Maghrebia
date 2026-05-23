@@ -828,6 +828,7 @@ def build_scenario_differentiation_check(expected: pd.DataFrame, scenario_summar
     monotone_share = float(((mu["mu_apt_prudent"] <= mu["mu_apt_central"] + 1e-12) & (mu["mu_apt_central"] <= mu["mu_apt_optimistic"] + 1e-12)).mean())
     opt_gap = float((mu["mu_apt_optimistic"] - mu["mu_apt_central"]).mean())
     prudent_gap = float((mu["mu_apt_central"] - mu["mu_apt_prudent"]).mean())
+    prudent_equal_central_share = float(np.isclose(mu["mu_apt_prudent"], mu["mu_apt_central"], atol=1e-12).mean())
     rows = [
         {
             "Check": "Mean_Prudent_lt_Central_lt_Optimistic",
@@ -862,6 +863,14 @@ def build_scenario_differentiation_check(expected: pd.DataFrame, scenario_summar
             "Comment": "L'écart moyen central-prudent doit être visible pour l'optimisation.",
         },
         {
+            "Check": "APT_SCENARIO_DIFFERENTIATION_OK",
+            "Result": bool(prudent_equal_central_share <= 0.30),
+            "Value": prudent_equal_central_share,
+            "Threshold": 0.30,
+            "Status": "PASSED" if prudent_equal_central_share <= 0.30 else "FAILED",
+            "Comment": "Le contrôle échoue si plus de 30 % des actifs ont mu_prudent égal à mu_central.",
+        },
+        {
             "Check": "Central_Selected_As_Reference",
             "Result": bool(np.allclose(mu["mu_apt_central"], expected["mu_expected_reference"].astype(float), atol=1e-12)) if "mu_expected_reference" in expected.columns else False,
             "Value": "mu_expected_reference = mu_apt_central",
@@ -871,6 +880,27 @@ def build_scenario_differentiation_check(expected: pd.DataFrame, scenario_summar
         },
     ]
     return pd.DataFrame(rows)
+
+
+def bound_saturation_by_asset(scenario_audit: pd.DataFrame, assets: pd.Series | list[str]) -> pd.Series:
+    """Flag assets whose prudent lower or optimistic upper scenario bound is saturated."""
+
+    flags = pd.Series("NONE", index=pd.Index(pd.Series(assets, dtype=str), name="asset_id"), dtype=object)
+    if scenario_audit.empty:
+        return flags
+    audit = scenario_audit.copy()
+    audit["Asset"] = audit["Asset"].astype(str)
+    prudent_lower = audit.loc[
+        audit["scenario"].eq("prudent") & audit["clip_direction"].eq("LOW"),
+        "Asset",
+    ]
+    optimistic_upper = audit.loc[
+        audit["scenario"].eq("optimistic") & audit["clip_direction"].eq("HIGH"),
+        "Asset",
+    ]
+    flags.loc[flags.index.intersection(prudent_lower)] = "PRUDENT_LOWER"
+    flags.loc[flags.index.intersection(optimistic_upper)] = "OPTIMISTIC_UPPER"
+    return flags
 
 
 def select_bounds(asset_type: str, params: APTParameters) -> tuple[float, float]:
@@ -1350,6 +1380,9 @@ def estimate_weekly_apt(
     expected["mu_expected_reference"] = expected["mu_apt_central"]
     expected["expected_return_annualized_final"] = expected["mu_apt_central"]
     expected["prudential_bound_applied"] = ~np.isclose(expected["mu_apt_raw"], expected["mu_apt_central"], atol=1e-12)
+    expected["bound_saturated"] = expected["asset_id"].map(
+        bound_saturation_by_asset(scenario_audit, expected["asset_id"])
+    ).fillna("NONE")
     bounds_by_asset_class = build_apt_bounds_by_asset_class()
     scenario_differentiation_check = build_scenario_differentiation_check(expected, scenario_summary)
     alignment = pd.DataFrame(alignment_rows)
@@ -1402,6 +1435,7 @@ def estimate_weekly_apt(
         ("APT_scenarios_assets_aligned", set(expected["asset_id"]) == set(sigma_apt.index), "mêmes actifs dans mu scénarios et Sigma_APT", "BLOCKING"),
         ("APT_scenario_bounds_applied", scenario_audit["mu_apt_scenario"].between(scenario_audit["lower_bound"], scenario_audit["upper_bound"]).all(), "bornes par classe respectées", "BLOCKING"),
         ("APT_scenario_order_prudent_central_optimistic", ((expected["mu_apt_prudent"] <= expected["mu_apt_central"] + 1e-12) & (expected["mu_apt_central"] <= expected["mu_apt_optimistic"] + 1e-12)).all(), "prudent <= central <= optimiste", "WARNING"),
+        ("APT_SCENARIO_DIFFERENTIATION_OK", not scenario_differentiation_check.loc[scenario_differentiation_check["Check"].eq("APT_SCENARIO_DIFFERENTIATION_OK"), "Status"].eq("FAILED").any(), "moins de 30% des actifs avec mu_prudent = mu_central", "WARNING"),
         ("APT_scenario_differentiation_sufficient", scenario_differentiation_check["Status"].eq("PASSED").all(), "différenciation prudent / central / optimiste contrôlée", "WARNING"),
         ("APT_optimistic_factor_treatment_documented", not optimistic_factor_treatment.empty and {"Factor", "Optimistic_Treatment", "Economic_Justification"}.issubset(optimistic_factor_treatment.columns), "traitement des facteurs optimistes documenté", "WARNING"),
         ("APT_central_reference_selected", np.allclose(expected["mu_apt_central"], expected["mu_expected_reference"], atol=1e-12), "mu_expected_reference = mu_apt_central", "BLOCKING"),
@@ -1462,6 +1496,8 @@ def apt_references_table() -> pd.DataFrame:
             ("Ross, S. A. (1976). The Arbitrage Theory of Capital Asset Pricing. Journal of Economic Theory, 13(3), 341–360.", "Fondement théorique de l’APT comme modèle multifactoriel."),
             ("Chen, N. F., Roll, R., & Ross, S. A. (1986). Economic Forces and the Stock Market. Journal of Business, 59(3), 383–403.", "Justification des facteurs macroéconomiques tels que les taux, l’inflation, la structure par terme et les primes de risque obligataires."),
             ("CFA Institute. Quantitative Investment Analysis, 4th Edition, Chapter 12: Using Multifactor Models.", "Cadre praticien des modèles multifactoriels, des sensibilités factorielles et de leur usage en construction de portefeuille."),
+            ("CFA Institute. Quantitative Investment Analysis, 4th Edition, expected-return calibration.", "Justification des bornes par classe d'actifs : limiter le risque d'estimation lorsque les rendements historiques 2025 sont extrêmes ou peu liquides."),
+            ("Cadre prudentiel assurance : gouvernance interne des placements, diversification et limites de concentration.", "Justification assurance des bornes equity/gov/corporate : elles ne sont pas réglementaires, mais encadrent les hypothèses APT pour une allocation institutionnelle défendable."),
             ("Kempthorne, P. MIT 18.S096, Lecture 15: Factor Models.", "Formulation matricielle des modèles factoriels et covariance factorielle Sigma = B Omega B’ + Psi."),
             ("Bourse des Valeurs Mobilières de Tunis. Guide des indices boursiers / méthodologie TUNINDEX20.", "Justification du TUNINDEX20 comme indice des valeurs les plus grandes et les plus liquides."),
             ("Institut National de la Statistique de Tunisie. Indice des Prix à la Consommation Familiale.", "Source officielle de l’inflation."),
