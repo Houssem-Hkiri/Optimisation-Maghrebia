@@ -1,8 +1,8 @@
-"""APT-driven portfolio optimisation for notebook 02.
+"""Compatibility wrapper for legacy Notebook 02 optimisation helpers.
 
-This module uses the audited APT outputs produced by notebook 01 as the
-primary optimisation inputs: expected returns are ``mu_APT`` and covariance is
-``Sigma_APT``. Historical returns are used only for ex-post risk metrics.
+New Notebook 02 code should import from ``maghrebia_quant.optimization``.
+The names kept here are technical aliases required by older exports from
+Notebook 01; they are not methodological labels for the final report.
 """
 
 from __future__ import annotations
@@ -1345,7 +1345,7 @@ def build_scenario_weight_stability(scenario_runs: dict[str, dict[str, object]])
 
 
 def run_apt_scenario_analysis(project_dir: str | Path, config: APTOptimizationConfig | None = None) -> dict[str, object]:
-    """Run the full three-scenario APT sensitivity analysis for notebook 02."""
+    """Run legacy technical-alias scenario sensitivity analysis for notebook 02."""
 
     config = config or APTOptimizationConfig()
     data = load_apt_optimization_inputs(project_dir)

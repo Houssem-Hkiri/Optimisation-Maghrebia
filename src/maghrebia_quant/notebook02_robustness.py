@@ -172,7 +172,7 @@ def build_rorac_proxy(candidates: pd.DataFrame) -> pd.DataFrame:
     )
     denominator = cvar.fillna(df["CVaR_95"].abs().median() if df["CVaR_95"].notna().any() else 0.01)
     df["Return_to_CVaR"] = df["Expected_Return_APT"] / denominator.replace(0, np.nan)
-    df["Return_to_RiskPenalty"] = df["Expected_Return_APT"] / (denominator + concentration_penalty + regulatory_penalty)
+    df["Return_to_CVaR_Adjusted"] = df["Expected_Return_APT"] / (denominator + concentration_penalty + regulatory_penalty)
     df["Interpretation"] = np.where(
         df["Regulatory_Status"].astype(str).str.contains("FAILED|BREACH", case=False, na=False),
         "Ratio indicatif pénalisé par une limite réglementaire ou interne.",
@@ -185,10 +185,10 @@ def build_rorac_proxy(candidates: pd.DataFrame) -> pd.DataFrame:
         "HHI",
         "Regulatory_Status",
         "Return_to_CVaR",
-        "Return_to_RiskPenalty",
+        "Return_to_CVaR_Adjusted",
         "Interpretation",
     ]
-    return df[[c for c in cols if c in df.columns]].sort_values("Return_to_RiskPenalty", ascending=False)
+    return df[[c for c in cols if c in df.columns]].sort_values("Return_to_CVaR_Adjusted", ascending=False)
 
 
 def build_factor_risk_sensitivity(
