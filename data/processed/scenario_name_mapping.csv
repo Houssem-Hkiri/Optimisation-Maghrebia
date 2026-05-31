@@ -1,0 +1,5 @@
+﻿Technical_Name,Methodological_Name,Usage
+APT_Prudent,ExAnte_Prudent,TECHNICAL_COMPATIBILITY_ONLY
+APT_Central,ExAnte_Central,TECHNICAL_COMPATIBILITY_ONLY
+APT_Optimistic,ExAnte_Optimistic,TECHNICAL_COMPATIBILITY_ONLY
+Historical_Raw,Historical_Raw_Comparative,DESCRIPTIVE_COMPARISON_ONLY

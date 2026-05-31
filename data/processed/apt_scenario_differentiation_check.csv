@@ -1,0 +1,7 @@
+﻿Check,Result,Value,Threshold,Status,Comment
+Mean_Prudent_lt_Central_lt_Optimistic,True,0.075321 < 0.113494 < 0.131958,ordre strict,PASSED,Les rendements moyens doivent refléter les trois régimes de marché.
+Asset_Level_Monotonicity_Share,True,1.0,0.7,PASSED,Au moins 70 % des actifs doivent respecter prudent <= central <= optimiste.
+Optimistic_Central_Average_Gap,True,0.018464165682661064,0.005,PASSED,L'écart moyen optimiste-central doit être visible pour l'optimisation.
+Central_Prudent_Average_Gap,True,0.03817289759813627,0.005,PASSED,L'écart moyen central-prudent doit être visible pour l'optimisation.
+APT_SCENARIO_DIFFERENTIATION_OK,True,0.14285714285714285,0.3,PASSED,Le contrôle échoue si plus de 30 % des actifs ont mu_prudent égal à mu_central.
+Central_Selected_As_Reference,True,mu_expected_reference = mu_apt_central,égalité numérique,PASSED,Le scénario central reste la référence principale du notebook 02.

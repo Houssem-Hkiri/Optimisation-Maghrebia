@@ -1,9 +1,0 @@
-parameter,value,comment
-primary_expected_returns,mu_APT,Rendements attendus du modèle APT du notebook 01
-primary_covariance,Sigma_APT,Covariance factorielle APT du notebook 01
-historical_returns_usage,risk_metrics_only,"VaR, CVaR, drawdown, downside deviation"
-RETURN_FREQUENCY,daily,Fréquence relle détectée sur Returns_Historical
-PERIODS_PER_YEAR,252,Facteur dannualisation unique utilispour les rendements historiques
-turnover_limit_used,0.3,"Même seuil appliqué aux modèles déterministes, à la frontière et au Monte Carlo faisable"
-monte_carlo_required,15000,Portefeuilles faisables minimum
-multicriteria_note,SCORING_NOT_PARETO_SOLVER,"Scoring multicritère d’aide à la décision, non solveur Pareto exact"

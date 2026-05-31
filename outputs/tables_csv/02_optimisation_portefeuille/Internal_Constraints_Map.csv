@@ -1,8 +1,0 @@
-constraint_id,description,value,hard_constraint,constraint_origin
-BUDGET,Somme des poids optimisables = 1,1.0,True,INTERNAL_GOVERNANCE
-NO_SHORT_SELLING,Poids négatifs interdits,0.0,True,INTERNAL_GOVERNANCE
-MAX_WEIGHT_PER_ASSET,Poids maximal par actif,0.3,True,INTERNAL_GOVERNANCE
-MAX_WEIGHT_PER_ISSUER,Poids maximal par émetteur,0.35,True,INTERNAL_GOVERNANCE
-MAX_EQUITY_WEIGHT,Poids actions maximal dans la poche optimisable,0.3,True,INTERNAL_GOVERNANCE
-MAX_CORPORATE_WEIGHT,Poids corporate maximal dans la poche optimisable,0.65,True,INTERNAL_GOVERNANCE
-TURNOVER_LIMIT,Turnover maximal de gouvernance,0.3,True,INTERNAL_GOVERNANCE

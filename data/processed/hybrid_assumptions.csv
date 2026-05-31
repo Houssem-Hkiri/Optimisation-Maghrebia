@@ -1,0 +1,4 @@
+﻿asset_class,w_DCF,w_Factor,w_Hist,status,comment
+Titres d'Etat,80% si disponible,5%,15%,OK,DCF privilegie avec courbes et cash-flows disponibles.
+Corporate bonds,70% si disponible,5%,25%,MODEL_LIMITATION,PD/LGD non modelises ; spreads et cash-flows controles.
+Actions cotées,0%,80%,20%,PASSED_WITH_WARNINGS,"Pas de DCF equity homogène ; facteur dominant, historique shrinké borné, caps ex ante à 14%/18%/25%."

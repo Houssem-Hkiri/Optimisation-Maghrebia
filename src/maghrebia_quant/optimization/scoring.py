@@ -271,25 +271,30 @@ def assign_decision_roles(scored: pd.DataFrame, reference_scenario: str = "ExAnt
 
 def build_model_deduplication_check() -> pd.DataFrame:
     rows = []
+    excluded_reason = "Benchmark comparatif uniquement, exclu de la décision finale."
     for model in EXPLORATORY_MODELS:
         canonical = model
         kept = model in DECISION_MODELS
-        reason = "Kept in decision set."
+        reason = (
+            "Conservé dans l'ensemble des modèles décisionnels."
+            if kept
+            else excluded_reason
+        )
         if model == "Markowitz_Mean_Variance":
-            canonical, kept, reason = "Mean_Variance_Lambda_10", False, "Alias of Lambda 10, removed from decision list to avoid duplicate."
+            canonical, kept, reason = "Mean_Variance_Lambda_10", False, excluded_reason
         elif model in {"Mean_Variance_Lambda_2", "Mean_Variance_Lambda_5", "Mean_Variance_Lambda_20"}:
-            canonical, kept, reason = "Mean_Variance_Lambda_10", False, "Exploratory risk aversion variant only."
+            canonical, kept, reason = "Mean_Variance_Lambda_10", False, excluded_reason
         elif model == "Markowitz_Max_Return":
-            canonical, kept, reason = "Extreme_Return_Comparative_Case", False, "Extreme comparative case, removed from decision list."
+            canonical, kept, reason = "Extreme_Return_Comparative_Case", False, excluded_reason
         elif model == "Max_Sharpe_Benchmark":
-            canonical, kept, reason = "Sharpe_Descriptive_Benchmark", False, "Benchmark only, not a final decision model."
+            canonical, kept, reason = "Sharpe_Descriptive_Benchmark", False, excluded_reason
         rows.append(
             {
                 "Original_Model": model,
                 "Canonical_Model": canonical,
                 "Kept_In_Decision": kept,
                 "Reason": reason,
-                "Correlation_Or_Distance_To_Canonical": "NOT_COMPUTED_REGISTER_LEVEL",
+                "Correlation_Or_Distance_To_Canonical": "Non calculé au niveau du registre",
                 "Status": "PASSED",
             }
         )

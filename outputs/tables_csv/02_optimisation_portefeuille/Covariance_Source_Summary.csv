@@ -1,2 +1,0 @@
-covariance_source,nb_assets,min_eigenvalue,condition_number,has_nan,is_psd,recommended_use,comment
-APT,21,4.335999926898501e-06,22183.996255652273,False,True,Matrice principale pour optimisation,Covariance factorielle APT cohérente avec les rendements attendus APT du notebook 01.

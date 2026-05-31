@@ -1,6 +1,0 @@
-check_name,status,details
-mu_APT_available,PASSED,21/21 actifs
-Sigma_APT_square,PASSED,"(21, 21)"
-Sigma_APT_symmetric,PASSED,symétrie numérique
-Sigma_APT_PSD,PASSED,min_eigenvalue=4.336e-06; repaired=False
-OPTIMIZATION_INPUTS_USE_APT,PASSED,mu_APT et Sigma_APT sont les inputs principaux

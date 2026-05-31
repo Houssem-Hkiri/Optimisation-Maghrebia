@@ -1,6 +1,0 @@
-quality_flag,status,comment
-SAME_SAMPLE_BACKTEST,INFO,Flag methodologique du backtest indicatif.
-NO_TRANSACTION_COSTS_INCLUDED,INFO,Flag methodologique du backtest indicatif.
-INDICATIVE_BACKTEST_ONLY,INFO,Flag methodologique du backtest indicatif.
-FREQUENCY_INFERRED_DAILY,INFO,Flag methodologique du backtest indicatif.
-SHORT_HISTORY_WARNING,WARNING,Flag methodologique du backtest indicatif.

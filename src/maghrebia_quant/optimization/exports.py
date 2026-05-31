@@ -48,7 +48,17 @@ from .scoring import (
 from .solvers_cvar import solve_cvar_models
 from .solvers_diversification import solve_diversification_models
 from .solvers_mean_variance import solve_max_sharpe_benchmark, solve_mean_variance_models
-from .stress_tests import STRESS_DEFINITIONS, run_stress_tests, stress_data_availability_check, worst_stress_loss, worst_stress_summary_for_weights
+from .stress_tests import (
+    NARRATIVE_STRESS_DEFINITIONS,
+    STRESS_DEFINITIONS,
+    build_worst_10_sessions_2025_backtest,
+    narrative_stress_loss_for_weights,
+    narrative_stress_scenarios_table,
+    run_stress_tests,
+    stress_data_availability_check,
+    worst_stress_loss,
+    worst_stress_summary_for_weights,
+)
 
 
 def _sheet_available(workbook_path: Path, sheet_name: str) -> tuple[bool, str]:
@@ -57,21 +67,21 @@ def _sheet_available(workbook_path: Path, sheet_name: str) -> tuple[bool, str]:
     xl = pd.ExcelFile(workbook_path)
     exact = sheet_name in xl.sheet_names
     truncated = any(name.startswith(sheet_name[:25]) for name in xl.sheet_names)
-    return exact or truncated, "Feuille trouvee." if exact or truncated else "Feuille absente."
+    return exact or truncated, "Feuille trouvée." if exact or truncated else "Feuille absente."
 
 
 def build_inputs_check(data: dict[str, object], project_dir: Path) -> pd.DataFrame:
     workbook = Path(data["workbook_path"])
     checks = [
-        ("Historical_Returns", isinstance(data.get("returns"), pd.DataFrame), getattr(data.get("returns"), "shape", ""), True, "PASSED", "Rendements historiques charges."),
-        ("Hybrid_Expected_Returns_By_Asset", *_sheet_available(workbook, "Hybrid_Expected_Returns_By_Asset"), True, "PASSED", "Scenario ExAnte issu du Notebook 01."),
-        ("Hybrid_Expected_Returns_By_Class", *_sheet_available(workbook, "Hybrid_Expected_Returns_By_Class"), True, "PASSED", "Controle par classe."),
-        ("Hybrid_Assumptions", *_sheet_available(workbook, "Hybrid_Assumptions"), True, "PASSED", "Hypotheses hybrides documentees."),
-        ("Expected_Returns_Quality_Flags", *_sheet_available(workbook, "Expected_Returns_Quality_Flags"), True, "PASSED", "Flags qualite attendus."),
-        ("Scenario_Name_Mapping", (project_dir / "data" / "processed" / "scenario_name_mapping.csv").exists(), "", True, "PASSED", "Mapping des alias techniques charge."),
-        ("PCA_ZC_Summary", *_sheet_available(workbook, "PCA_ZC_Summary"), True, "PASSED", "PCA utilisee comme diagnostic, non comme modele de rendement."),
+        ("Historical_Returns", isinstance(data.get("returns"), pd.DataFrame), getattr(data.get("returns"), "shape", ""), True, "PASSED", "Rendements historiques chargés."),
+        ("Hybrid_Expected_Returns_By_Asset", *_sheet_available(workbook, "Hybrid_Expected_Returns_By_Asset"), True, "PASSED", "Scénario ExAnte issu du Notebook 01."),
+        ("Hybrid_Expected_Returns_By_Class", *_sheet_available(workbook, "Hybrid_Expected_Returns_By_Class"), True, "PASSED", "Contrôle par classe."),
+        ("Hybrid_Assumptions", *_sheet_available(workbook, "Hybrid_Assumptions"), True, "PASSED", "Hypothèses hybrides documentées."),
+        ("Expected_Returns_Quality_Flags", *_sheet_available(workbook, "Expected_Returns_Quality_Flags"), True, "PASSED", "Flags qualité attendus."),
+        ("Scenario_Name_Mapping", (project_dir / "data" / "processed" / "scenario_name_mapping.csv").exists(), "", True, "PASSED", "Mapping des alias techniques chargé."),
+        ("PCA_ZC_Summary", *_sheet_available(workbook, "PCA_ZC_Summary"), True, "PASSED", "PCA utilisée comme diagnostic, non comme modèle de rendement."),
         ("PCA_Returns_Summary", *_sheet_available(workbook, "PCA_Returns_Summary"), True, "PASSED", "Diagnostic de facteurs de risque."),
-        ("PCA_Quality_Flags", *_sheet_available(workbook, "PCA_Quality_Flags"), True, "PASSED", "Flags PCA charges si disponibles."),
+        ("PCA_Quality_Flags", *_sheet_available(workbook, "PCA_Quality_Flags"), True, "PASSED", "Flags PCA chargés si disponibles."),
         ("Covariance_Ledoit_Wolf", isinstance(data.get("sigma"), pd.DataFrame), getattr(data.get("sigma"), "shape", ""), True, "PASSED", "Input principal de risque."),
         ("Current_Weights", "current_weight_optimisable" in data["expected"].columns, "", True, "PASSED", "Poids actuels de la poche optimisable."),
         ("Constraints", True, "", True, "PASSED", "Contraintes internes et CGA documentees dans le Notebook 02."),
@@ -117,6 +127,248 @@ def _decision_eligibility(model: str) -> str:
     if model in DECISION_MODELS:
         return "MODEL_BASED_DECISION"
     return "COMPARATIVE_BENCHMARK_ONLY"
+
+
+SCENARIO_DISPLAY = {
+    "ExAnte_Central": "Scénario central de rendement attendu",
+    "ExAnte_Prudent": "Scénario prudent",
+    "ExAnte_Optimistic": "Scénario optimiste",
+    "Historical_Raw_Comparative": "Scénario historique comparatif",
+    "APT_Central": "Scénario central de rendement attendu",
+    "APT_Prudent": "Scénario prudent",
+    "APT_Optimistic": "Scénario optimiste",
+    "Historical_Raw": "Scénario historique comparatif",
+}
+
+STATUS_DISPLAY = {
+    "DATA_MISSING_CRITICAL": "Données critiques manquantes",
+    "DATA_MISSING": "Données manquantes",
+    "PARTIAL_DATA": "Données partielles",
+    "CALCULATED": "Calculé",
+    "NOT_TESTABLE_DATA_MISSING": "Non testable faute de données",
+    "NON_TESTABLE_DATA_MISSING": "Non testable faute de données",
+    "PASSED_WITH_WARNINGS": "Validé avec réserves",
+    "PASSED_SUBJECT_TO_NON_TESTABLE_CONSTRAINTS": "Validé sous réserve des contraintes non testables",
+    "PASSED": "Validé",
+    "FAILED": "Non validé",
+    "TARGET_REACHED_OR_EXCEEDED": "Objectif atteint ou dépassé",
+    "TARGET_NOT_REACHED": "Objectif non atteint",
+    "MODEL_BASED_DECISION": "Décision issue du modèle",
+    "COMPARATIVE_BENCHMARK_ONLY": "Benchmark comparatif",
+    "MONTE_CARLO_EXPLORATORY_ONLY": "Benchmark Monte Carlo exploratoire",
+    "EXCLUDED_MODEL_FAILED": "Modèle exclu car non calculé",
+    "PARETO_EFFICIENT": "Portefeuille efficient au sens de Pareto",
+    "PARETO_DOMINATED": "Portefeuille dominé au sens de Pareto",
+    "NOT_ELIGIBLE_MISSING_CRITICAL_DATA": "Non éligible faute de données critiques",
+    "ALREADY_ANNUALIZED": "Déjà annualisé",
+    "Recommended_Central": "Recommandation centrale",
+    "Prudent_Alternative": "Alternative prudente",
+    "Conservative_Alternative": "Alternative conservatrice",
+    "Diversification_Alternative": "Alternative de diversification",
+    "Comparative_Only": "Comparatif uniquement",
+    "Not_Selected": "Non retenu",
+    "Benchmark_Or_Exploratory": "Benchmark ou exploration",
+    "Exploratory_Benchmark": "Benchmark exploratoire",
+    "Rejected_Constraint": "Rejeté pour contrainte",
+    "RECOMMENDED_CENTRAL": "Recommandation centrale",
+    "AVAILABLE": "Disponible",
+    "NOT_COMPUTED": "Non calculé",
+    "MODEL_NOT_AVAILABLE": "Modèle non disponible",
+    "MONTE_CARLO_EXPLORATORY": "Exploration Monte Carlo",
+}
+
+MODEL_DISPLAY = {
+    "Current_Portfolio": "Portefeuille actuel",
+    "Equal_Weighted": "Portefeuille équipondéré",
+    "Minimum_Variance": "Minimum variance",
+    "Mean_Variance_Lambda_2": "Markowitz - aversion 2",
+    "Mean_Variance_Lambda_5": "Markowitz - aversion 5",
+    "Mean_Variance_Lambda_10": "Markowitz moyenne-variance",
+    "Mean_Variance_Lambda_20": "Markowitz - aversion 20",
+    "Markowitz_Mean_Variance": "Markowitz moyenne-variance",
+    "Markowitz_Max_Return": "Rendement maximal comparatif",
+    "Max_Sharpe_Benchmark": "Benchmark Max Sharpe",
+    "Min_CVaR": "Minimum CVaR",
+    "Mean_CVaR_95": "Mean-CVaR 95 %",
+    "Mean_CVaR_98_5": "Mean-CVaR 98,5 %",
+    "Mean_CVaR_99_5": "Mean-CVaR 99,5 %",
+    "Max_Return_CVaR_Constrained": "Rendement maximal sous contrainte CVaR",
+    "Robust_CVaR_Conservative_Proxy": "Robust-CVaR conservateur",
+    "Risk_Parity": "Risk Parity",
+    "Maximum_Diversification": "Maximum Diversification",
+    "MonteCarlo_Best": "Meilleur portefeuille Monte Carlo exploratoire",
+    "Target_Seeking": "Allocation 10 MD orientée cible",
+    "Diversified": "Allocation 10 MD diversifiée",
+}
+
+
+def _human_label(value: object, mapping: dict[str, str]) -> object:
+    if pd.isna(value):
+        return value
+    text = str(value)
+    return mapping.get(text, text.replace("_", " "))
+
+
+def _format_percent(value: object) -> str:
+    num = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+    if pd.isna(num):
+        return "Données manquantes"
+    return f"{num * 100:,.2f} %".replace(",", " ").replace(".", ",")
+
+
+def _format_amount(value: object) -> str:
+    num = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+    if pd.isna(num):
+        return "Données manquantes"
+    return f"{num:,.0f} DT".replace(",", " ")
+
+
+def _format_ratio(value: object) -> str:
+    num = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+    if pd.isna(num):
+        return "Données manquantes"
+    return f"{num:,.2f}".replace(",", " ").replace(".", ",")
+
+
+def _first_existing(row: pd.Series, columns: list[str]) -> object:
+    for col in columns:
+        if col in row.index and pd.notna(row[col]):
+            return row[col]
+    return np.nan
+
+
+def _decision_comment(row: pd.Series) -> str:
+    model = str(row.get("Model", row.get("Recommended_Model", "")))
+    decision = str(row.get("Decision", row.get("Decision_Role", row.get("Recommendation_Flag", ""))))
+    eligibility = str(row.get("Decision_Eligibility", ""))
+    pareto = str(row.get("Pareto_Status", ""))
+    if "Recommended_Model" in row.index and pd.notna(row.get("Recommended_Model")):
+        return f"Le portefeuille recommandé est issu du modèle {MODEL_DISPLAY.get(model, model)}."
+    if decision in {"Recommended_Central", "RECOMMENDED_CENTRAL"} or row.get("Recommendation_Flag") == "Recommended_Central":
+        return f"Portefeuille recommandé selon le score central : {MODEL_DISPLAY.get(model, model)}."
+    if eligibility == "MONTE_CARLO_EXPLORATORY_ONLY":
+        return "Benchmark exploratoire ; il ne pilote pas la décision finale."
+    if eligibility == "COMPARATIVE_BENCHMARK_ONLY":
+        return "Benchmark conservé pour comparaison, non retenu comme recommandation principale."
+    if eligibility == "EXCLUDED_MODEL_FAILED":
+        return "Modèle non calculé ou non stable ; aucun résultat n'est inventé."
+    if pareto == "PARETO_DOMINATED":
+        return "Portefeuille dominé au sens de Pareto ; non retenu dans la décision finale."
+    return "Portefeuille évalué selon les mêmes métriques que les autres candidats."
+
+
+def add_display_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Add French presentation columns without modifying numeric calculation columns."""
+
+    if df.empty:
+        return df.copy()
+    out = df.copy()
+
+    model_source = "Model" if "Model" in out.columns else "Recommended_Model" if "Recommended_Model" in out.columns else None
+    if model_source:
+        out["Model_Display"] = out[model_source].map(lambda x: _human_label(x, MODEL_DISPLAY))
+        out["Nom du modèle"] = out["Model_Display"]
+
+    scenario_source = "Scenario" if "Scenario" in out.columns else "Scenario_Methodological_Name" if "Scenario_Methodological_Name" in out.columns else None
+    if scenario_source:
+        out["Scenario_Display"] = out[scenario_source].map(lambda x: _human_label(x, SCENARIO_DISPLAY))
+        out["Scénario"] = out["Scenario_Display"]
+
+    for source, display_col, report_col in [
+        ("Return", "Return_Display", None),
+        ("Current_Portfolio_Return", "Current_Portfolio_Return_Display", "Rendement portefeuille actuel"),
+        ("Recommended_Portfolio_Return", "Recommended_Portfolio_Return_Display", "Rendement portefeuille recommande"),
+        ("Expected_Return_Annualized", "Expected_Return_Display", "Rendement attendu"),
+        ("Volatility_Annualized", "Volatility_Display", "Volatilité"),
+        ("VaR_99_5_Annualized", "VaR_Display", "VaR"),
+        ("CVaR_99_5_Annualized", "CVaR_Display", "CVaR"),
+        ("Loss_Percent", "Loss_Display", "Perte"),
+        ("Worst_Stress_Loss_Percent", "Worst_Stress_Loss_Percent_Display", "Pire perte stressée (%)"),
+        ("Average_Loss_Worst_10_Sessions", "Average_Loss_Display", "Perte moyenne 10 pires séances"),
+        ("Worst_Observed_Loss", "Worst_Observed_Loss_Display", "Pire perte observée"),
+        ("Cumulative_Loss_Worst_10_Sessions", "Cumulative_Loss_Display", "Perte cumulée 10 pires séances"),
+        ("Avoided_or_Additional_Loss_vs_Current", "Avoided_or_Additional_Loss_Display", "Écart de perte vs actuel"),
+        ("Target_Return", "Target_ROE_Display", "Objectif ROE"),
+        ("Target_ROE_Gap", "Target_ROE_Gap_Display", "Écart à la cible ROE"),
+        ("Target_ROE_Shortfall", "Target_ROE_Shortfall_Display", "Manque à gagner ROE"),
+        ("Target_ROE_Excess", "Target_ROE_Excess_Display", "Excédent ROE"),
+        ("Weight", "Weight_Display", "Poids"),
+        ("Max_Weight", "Weight_Display", "Poids maximum"),
+    ]:
+        if source in out.columns:
+            out[display_col] = out[source].map(_format_percent)
+            if report_col:
+                out[report_col] = out[display_col]
+
+    for source, display_col, report_col in [
+        ("Amount_TND", "Amount_Display", "Montant"),
+        ("Loss_TND", "Loss_TND_Display", "Perte stressée"),
+        ("Worst_Stress_Loss_TND", "Worst_Stress_Loss_Display", "Pire perte stressée"),
+        ("Impact_marginal_10MD", "Amount_Display", "Montant"),
+    ]:
+        if source in out.columns:
+            out[display_col] = out[source].map(_format_amount)
+            out[report_col] = out[display_col]
+
+    if "Sharpe" in out.columns:
+        out["Sharpe_Display"] = out["Sharpe"].map(_format_ratio)
+
+    for source, display_col, report_col in [
+        ("Decision_Eligibility", "Decision_Eligibility_Display", "Éligibilité décisionnelle"),
+        ("Pareto_Status", "Pareto_Status_Display", "Statut Pareto"),
+        ("Regulatory_Status", "Regulatory_Status_Display", "Statut de conformité"),
+        ("Constraint_Status", "Constraint_Status_Display", None),
+        ("Constraint_Violation_Status", "Constraint_Violation_Status_Display", None),
+        ("Stress_Test_Status", "Stress_Test_Status_Display", None),
+        ("Worst_Stress_Status", "Worst_Stress_Status_Display", None),
+        ("Calculation_Status", "Calculation_Status_Display", None),
+        ("Data_Status", "Data_Status_Display", None),
+        ("Status", "Status_Display", None),
+        ("Target_Status", "Target_Status_Display", None),
+        ("Volatility_Status", "Volatility_Status_Display", None),
+        ("Quality_Flag", "Quality_Flag_Display", None),
+        ("Decision", "Decision_Display", "Décision"),
+        ("Decision_Role", "Decision_Display", "Décision"),
+        ("Recommendation_Flag", "Decision_Display", "Décision"),
+    ]:
+        if source in out.columns:
+            out[display_col] = out[source].map(lambda x: _human_label(x, STATUS_DISPLAY))
+            if report_col and report_col not in out.columns:
+                out[report_col] = out[display_col]
+
+    if "Statut de conformité" not in out.columns:
+        if "Constraint_Violation_Status_Display" in out.columns:
+            out["Statut de conformité"] = out["Constraint_Violation_Status_Display"]
+        elif "Feasible" in out.columns:
+            out["Statut de conformité"] = np.where(out["Feasible"].astype(bool), "Conforme aux contraintes testables", "Non conforme")
+
+    out["Commentaire décisionnel"] = out.apply(_decision_comment, axis=1)
+    return out
+
+
+REPORT_DISPLAY_COLUMNS = [
+    "Nom du modèle",
+    "Scénario",
+    "Rendement attendu",
+    "Volatilité",
+    "VaR",
+    "CVaR",
+    "Statut Pareto",
+    "Statut de conformité",
+    "Éligibilité décisionnelle",
+    "Décision",
+    "Commentaire décisionnel",
+]
+
+
+def prioritize_display_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Place human-readable report columns first while preserving all internal columns."""
+
+    if df.empty:
+        return df.copy()
+    front = [col for col in REPORT_DISPLAY_COLUMNS if col in df.columns]
+    rest = [col for col in df.columns if col not in front]
+    return df[front + rest]
 
 
 def _safe_max_violation(violations: pd.DataFrame) -> float:
@@ -396,7 +648,7 @@ def _build_figures(tables: dict[str, pd.DataFrame], figures_dir: Path) -> dict[s
                     x=central_models["Volatility_Annualized"],
                     y=central_models["Expected_Return_Annualized"],
                     mode="markers+text",
-                    text=central_models["Model"],
+                    text=central_models["Model_Display"] if "Model_Display" in central_models.columns else central_models["Model"],
                     textposition="top center",
                     marker=dict(symbol="diamond", size=11, color="black"),
                     name="Modèles optimisés",
@@ -452,7 +704,7 @@ def _build_figures(tables: dict[str, pd.DataFrame], figures_dir: Path) -> dict[s
                     x=central_models["Volatility_Annualized"],
                     y=central_models["Expected_Return_Annualized"],
                     mode="markers+text",
-                    text=central_models["Model"],
+                    text=central_models["Model_Display"] if "Model_Display" in central_models.columns else central_models["Model"],
                     textposition="top center",
                     marker=dict(size=9),
                     name="Portefeuilles optimisés",
@@ -483,8 +735,8 @@ def _build_figures(tables: dict[str, pd.DataFrame], figures_dir: Path) -> dict[s
             x="CVaR_99_5_Annualized",
             y="Expected_Return_Annualized",
             color="Distance_L1_Current",
-            symbol="Scenario_Methodological_Name",
-            hover_name="Model",
+            symbol="Scenario_Display" if "Scenario_Display" in eval_df.columns else "Scenario_Methodological_Name",
+            hover_name="Model_Display" if "Model_Display" in eval_df.columns else "Model",
             title="Rendement espéré annualisé vs CVaR 99,5 % annualisée",
             labels={
                 "CVaR_99_5_Annualized": "CVaR 99,5 % annualisée",
@@ -501,12 +753,16 @@ def _build_figures(tables: dict[str, pd.DataFrame], figures_dir: Path) -> dict[s
             recommended_model=recommended_model,
         )
         var_cols = ["VaR_95", "CVaR_95", "VaR_98_5", "CVaR_98_5", "VaR_99_5", "CVaR_99_5"]
-        central = eval_df.loc[eval_df["Scenario_Methodological_Name"].eq("ExAnte_Central"), ["Model", *var_cols]]
+        central_cols = ["Model", *var_cols]
+        if "Model_Display" in eval_df.columns:
+            central_cols.insert(1, "Model_Display")
+        central = eval_df.loc[eval_df["Scenario_Methodological_Name"].eq("ExAnte_Central"), central_cols]
         if not central.empty:
-            long = central.melt(id_vars="Model", var_name="Metric", value_name="Value")
+            id_vars = ["Model", "Model_Display"] if "Model_Display" in central.columns else ["Model"]
+            long = central.melt(id_vars=id_vars, var_name="Metric", value_name="Value")
             figs["VaR_CVaR"] = px.bar(
                 long,
-                x="Model",
+                x="Model_Display" if "Model_Display" in long.columns else "Model",
                 y="Value",
                 color="Metric",
                 barmode="group",
@@ -517,19 +773,22 @@ def _build_figures(tables: dict[str, pd.DataFrame], figures_dir: Path) -> dict[s
                 rec_model = recommended_model or "Mean_CVaR_99_5"
                 point = central.loc[central["Model"].eq(rec_model)]
                 if not point.empty:
+                    point_label = point["Model_Display"].iloc[0] if "Model_Display" in point.columns else rec_model
                     _add_point_annotation(
                         figs["VaR_CVaR"],
-                        rec_model,
+                        point_label,
                         point["CVaR_99_5"].iloc[0],
                         "CVaR recommandée",
                         ax=30,
                         ay=-35,
                     )
                 worst = central[["Model", "CVaR_99_5"]].dropna().sort_values("CVaR_99_5", ascending=False).head(1)
+                if "Model_Display" in central.columns:
+                    worst = central[["Model", "Model_Display", "CVaR_99_5"]].dropna().sort_values("CVaR_99_5", ascending=False).head(1)
                 if not worst.empty:
                     _add_point_annotation(
                         figs["VaR_CVaR"],
-                        worst["Model"].iloc[0],
+                        worst["Model_Display"].iloc[0] if "Model_Display" in worst.columns else worst["Model"].iloc[0],
                         worst["CVaR_99_5"].iloc[0],
                         "CVaR max",
                         ax=-35,
@@ -538,7 +797,8 @@ def _build_figures(tables: dict[str, pd.DataFrame], figures_dir: Path) -> dict[s
     stress = tables.get("Stress_Tests", pd.DataFrame())
     if not stress.empty:
         central_stress = stress.loc[stress["Scenario_Methodological_Name"].eq("ExAnte_Central")]
-        pivot = central_stress.pivot_table(index="Model", columns="Stress_Name", values="Loss_TND", aggfunc="max")
+        model_index = "Model_Display" if "Model_Display" in central_stress.columns else "Model"
+        pivot = central_stress.pivot_table(index=model_index, columns="Stress_Name", values="Loss_TND", aggfunc="max")
         figs["Stress_Heatmap"] = px.imshow(
             pivot,
             aspect="auto",
@@ -561,12 +821,120 @@ def _build_figures(tables: dict[str, pd.DataFrame], figures_dir: Path) -> dict[s
                     bordercolor="rgba(40,40,40,0.35)",
                     borderwidth=1,
                 )
+    narrative_recommended = tables.get("Narrative_Stress_Recommended", pd.DataFrame())
+    if not narrative_recommended.empty and {"Stress_Label", "Loss_TND"}.issubset(narrative_recommended.columns):
+        narrative_plot = narrative_recommended.copy()
+        narrative_plot["Loss_TND"] = pd.to_numeric(narrative_plot["Loss_TND"], errors="coerce")
+        figs["Narrative_Stress_Recommended"] = px.bar(
+            narrative_plot,
+            x="Stress_Label",
+            y="Loss_TND",
+            color="Status_Display" if "Status_Display" in narrative_plot.columns else "Status",
+            text="Loss_TND_Display" if "Loss_TND_Display" in narrative_plot.columns else None,
+            title="Stress tests narratifs - portefeuille recommandé",
+            labels={
+                "Stress_Label": "Scénario narratif",
+                "Loss_TND": "Perte estimée (TND)",
+                "Status_Display": "Statut des données",
+                "Status": "Statut des données",
+            },
+        )
+        figs["Narrative_Stress_Recommended"].update_traces(textposition="outside")
+        figs["Narrative_Stress_Recommended"].update_layout(
+            xaxis_title="Scénario narratif",
+            yaxis_title="Perte estimée (TND)",
+            legend_title="Statut",
+        )
+        if narrative_plot["Loss_TND"].notna().any():
+            worst_row = narrative_plot.sort_values("Loss_TND", ascending=False).head(1).iloc[0]
+            _add_point_annotation(
+                figs["Narrative_Stress_Recommended"],
+                worst_row["Stress_Label"],
+                worst_row["Loss_TND"],
+                "Stress narratif le plus pénalisant",
+                ax=25,
+                ay=-40,
+            )
+    backtest = tables.get("Worst_10_Sessions_2025_Backtest", pd.DataFrame())
+    if not backtest.empty and {"Date", "Current_Portfolio_Return", "Recommended_Portfolio_Return"}.issubset(backtest.columns):
+        backtest_plot = backtest.copy()
+        backtest_plot["Date"] = pd.to_datetime(backtest_plot["Date"], errors="coerce")
+        long_backtest = backtest_plot.melt(
+            id_vars=["Date", "Stress_Session_Rank"],
+            value_vars=["Current_Portfolio_Return", "Recommended_Portfolio_Return"],
+            var_name="Portefeuille",
+            value_name="Rendement",
+        )
+        long_backtest["Portefeuille"] = long_backtest["Portefeuille"].replace(
+            {
+                "Current_Portfolio_Return": "Portefeuille actuel",
+                "Recommended_Portfolio_Return": "Portefeuille recommandé",
+            }
+        )
+        figs["Worst_10_Sessions_2025_Backtest"] = px.line(
+            long_backtest.sort_values("Stress_Session_Rank"),
+            x="Stress_Session_Rank",
+            y="Rendement",
+            color="Portefeuille",
+            markers=True,
+            title="Backtesting - 10 pires séances 2025",
+            labels={
+                "Stress_Session_Rank": "Rang de la séance stressée",
+                "Rendement": "Rendement observé sur la séance",
+                "Portefeuille": "Portefeuille",
+            },
+            hover_data={"Date": True},
+        )
+        figs["Worst_10_Sessions_2025_Backtest"].update_layout(
+            xaxis_title="Rang des 10 pires séances 2025",
+            yaxis_title="Rendement de la séance",
+            legend_title="Portefeuille",
+        )
+        if "Avoided_or_Additional_Loss_vs_Current" in backtest_plot.columns:
+            best_gap = backtest_plot.dropna(subset=["Avoided_or_Additional_Loss_vs_Current"]).sort_values(
+                "Avoided_or_Additional_Loss_vs_Current",
+                ascending=False,
+            ).head(1)
+            if not best_gap.empty:
+                _add_point_annotation(
+                    figs["Worst_10_Sessions_2025_Backtest"],
+                    best_gap["Stress_Session_Rank"].iloc[0],
+                    best_gap["Recommended_Portfolio_Return"].iloc[0],
+                    "Écart le plus favorable",
+                    ax=30,
+                    ay=-35,
+                )
+    backtest_summary = tables.get("Worst_10_Sessions_2025_Summary", pd.DataFrame())
+    if not backtest_summary.empty and {"Model_Display", "Average_Loss_Worst_10_Sessions"}.issubset(backtest_summary.columns):
+        summary_plot = backtest_summary.copy()
+        summary_plot["Average_Loss_Worst_10_Sessions"] = pd.to_numeric(
+            summary_plot["Average_Loss_Worst_10_Sessions"],
+            errors="coerce",
+        )
+        figs["Worst_10_Sessions_2025_Summary"] = px.bar(
+            summary_plot.sort_values("Average_Loss_Worst_10_Sessions"),
+            x="Model_Display",
+            y="Average_Loss_Worst_10_Sessions",
+            color="Data_Status_Display" if "Data_Status_Display" in summary_plot.columns else "Data_Status",
+            title="Backtesting - perte moyenne sur les 10 pires séances 2025",
+            labels={
+                "Model_Display": "Modèle",
+                "Average_Loss_Worst_10_Sessions": "Perte moyenne",
+                "Data_Status_Display": "Statut des données",
+                "Data_Status": "Statut des données",
+            },
+        )
+        figs["Worst_10_Sessions_2025_Summary"].update_layout(
+            xaxis_title="Modèle",
+            yaxis_title="Perte moyenne",
+            legend_title="Statut",
+        )
     scoring = tables.get("Scoring_MultiCriteria", pd.DataFrame())
     if not scoring.empty:
         central_scoring = scoring.loc[scoring["Scenario_Methodological_Name"].eq("ExAnte_Central")]
         figs["Scoring"] = px.bar(
             central_scoring,
-            x="Model",
+            x="Model_Display" if "Model_Display" in central_scoring.columns else "Model",
             y=["Score_Prudent", "Score_Central", "Score_Return_Oriented"],
             barmode="group",
             title="Scores multicritères par modèle",
@@ -577,7 +945,7 @@ def _build_figures(tables: dict[str, pd.DataFrame], figures_dir: Path) -> dict[s
             if not best.empty:
                 _add_point_annotation(
                     figs["Scoring"],
-                    best["Model"].iloc[0],
+                    best["Model_Display"].iloc[0] if "Model_Display" in best.columns else best["Model"].iloc[0],
                     best["Score_Central"].iloc[0],
                     "Meilleur score central",
                     ax=35,
@@ -588,7 +956,7 @@ def _build_figures(tables: dict[str, pd.DataFrame], figures_dir: Path) -> dict[s
                 if not rec_score.empty:
                     _add_point_annotation(
                         figs["Scoring"],
-                        recommended_model,
+                        rec_score["Model_Display"].iloc[0] if "Model_Display" in rec_score.columns else recommended_model,
                         rec_score["Score_Central"].iloc[0],
                         "Recommended",
                         ax=-35,
@@ -596,19 +964,26 @@ def _build_figures(tables: dict[str, pd.DataFrame], figures_dir: Path) -> dict[s
                     )
     impact = tables.get("Impact_10MD_Summary", pd.DataFrame())
     if not impact.empty:
-        figs["Impact_10MD"] = px.bar(
-            impact,
-            x="Allocation_Type",
-            y="Impact_marginal_10MD",
-            color="Allocation_Type",
-            title="Impact marginal allocation 10 MD",
-            labels={"Allocation_Type": "Allocation", "Impact_marginal_10MD": "Impact marginal TND"},
+        impact_plot = impact.copy()
+        impact_plot["Allocation_Type_Display"] = impact_plot["Allocation_Type"].replace(
+            {
+                "Target_Seeking": "Allocation orientée cible",
+                "Diversified": "Allocation diversifiée",
+            }
         )
-        for _, row in impact.iterrows():
+        figs["Impact_10MD"] = px.bar(
+            impact_plot,
+            x="Allocation_Type_Display",
+            y="Impact_marginal_10MD",
+            color="Allocation_Type_Display",
+            title="Impact marginal allocation 10 MD",
+            labels={"Allocation_Type_Display": "Allocation", "Impact_marginal_10MD": "Impact marginal TND"},
+        )
+        for _, row in impact_plot.iterrows():
             if "Allocation_Type" in row and "Impact_marginal_10MD" in row:
                 _add_point_annotation(
                     figs["Impact_10MD"],
-                    row["Allocation_Type"],
+                    row["Allocation_Type_Display"],
                     row["Impact_marginal_10MD"],
                     f"{float(row['Impact_marginal_10MD']):,.0f} TND",
                     ax=0,
@@ -822,16 +1197,240 @@ def _build_final_comparative_table(
     return final_table
 
 
+def _build_narrative_stress_recommended(
+    all_portfolios: dict[tuple[str, str], np.ndarray],
+    universe: pd.DataFrame,
+    portfolio_value: float,
+    recommended_model: str,
+    scenario: str = "ExAnte_Central",
+) -> pd.DataFrame:
+    """Prepare a readable stress-test view for the recommended portfolio only."""
+
+    weights = all_portfolios.get((scenario, recommended_model))
+    if weights is None or not recommended_model:
+        return pd.DataFrame(
+            [
+                {
+                    "Scenario_Methodological_Name": scenario,
+                    "Model": recommended_model or "NO_RECOMMENDATION",
+                    "Stress_Name": "DATA_MISSING",
+                    "Status": "DATA_MISSING_CRITICAL",
+                    "Nb_Missing": np.nan,
+                    "Comment": "Poids du portefeuille recommandé indisponibles pour les stress narratifs.",
+                }
+            ]
+        )
+
+    rows = []
+    for definition in NARRATIVE_STRESS_DEFINITIONS:
+        row = narrative_stress_loss_for_weights(weights, universe, portfolio_value, definition)
+        row["Scenario_Methodological_Name"] = scenario
+        row["Model"] = recommended_model
+        rows.append(row)
+    subset = pd.DataFrame(rows)
+    subset["Loss_TND"] = pd.to_numeric(subset["Loss_TND"], errors="coerce")
+    subset["Loss_Percent"] = pd.to_numeric(subset["Loss_Percent"], errors="coerce")
+    subset["Nb_Missing"] = subset["Status"].astype(str).isin(["DATA_MISSING", "DATA_MISSING_CRITICAL", "PARTIAL_DATA"]).astype(int)
+    subset["Interpretation_Financiere"] = np.where(
+        subset["Status"].astype(str).isin(["DATA_MISSING", "DATA_MISSING_CRITICAL"]),
+        "Stress non calculable faute de données de duration ou de spread ; aucune perte n'est remplacée par zéro.",
+        np.where(
+            subset["Status"].astype(str).eq("PARTIAL_DATA"),
+            "Stress partiellement calculé : les composantes disponibles sont conservées et les données manquantes restent signalées.",
+            "Stress narratif calculé sur les données disponibles du portefeuille recommandé.",
+        ),
+    )
+    subset["Point_De_Vigilance"] = np.where(
+        subset["Status"].astype(str).isin(["DATA_MISSING", "DATA_MISSING_CRITICAL", "PARTIAL_DATA"]),
+        "Donnée manquante à documenter avant une décision réglementaire complète.",
+        "Résultat à lire comme un choc de sensibilité, pas comme une prévision.",
+    )
+    return subset.reset_index(drop=True)
+
+
 def export_outputs(tables: dict[str, pd.DataFrame], figures: dict[str, go.Figure], export_dir: Path) -> None:
     _export_excel(tables, export_dir / "02_optimisation_outputs.xlsx")
     for name, fig in figures.items():
         fig.write_html(export_dir / "figures" / f"{name}.html", include_plotlyjs="cdn")
 
 
+def _read_baseline_sheet(workbook_path: Path, table_name: str) -> pd.DataFrame | None:
+    if not workbook_path.exists():
+        return None
+    try:
+        xl = pd.ExcelFile(workbook_path)
+    except Exception:
+        return None
+    sheet_name = table_name[:31]
+    if sheet_name not in xl.sheet_names:
+        return None
+    return pd.read_excel(workbook_path, sheet_name=sheet_name)
+
+
+def _ordered_subset(df: pd.DataFrame, key_cols: list[str], value_cols: list[str]) -> pd.DataFrame:
+    cols = [c for c in key_cols + value_cols if c in df.columns]
+    out = df[cols].copy()
+    if key_cols and all(c in out.columns for c in key_cols):
+        out = out.sort_values(key_cols).reset_index(drop=True)
+    else:
+        out = out.reset_index(drop=True)
+    return out
+
+
+def _same_table_values(left: pd.DataFrame, right: pd.DataFrame, atol: float = 1e-6) -> bool:
+    if left.shape != right.shape or list(left.columns) != list(right.columns):
+        return False
+    for col in left.columns:
+        left_num = pd.to_numeric(left[col], errors="coerce")
+        right_num = pd.to_numeric(right[col], errors="coerce")
+        numeric = left_num.notna().sum() == left[col].notna().sum() and right_num.notna().sum() == right[col].notna().sum()
+        if numeric and (left_num.notna().any() or right_num.notna().any()):
+            if not np.allclose(left_num.to_numpy(float), right_num.to_numpy(float), rtol=1e-8, atol=atol, equal_nan=True):
+                return False
+        else:
+            if not np.array_equal(left[col].astype(str).to_numpy(), right[col].astype(str).to_numpy()):
+                return False
+    return True
+
+
+def _baseline_table_status(
+    workbook_path: Path,
+    tables: dict[str, pd.DataFrame],
+    table_name: str,
+    key_cols: list[str],
+    value_cols: list[str],
+) -> tuple[str, str]:
+    baseline = _read_baseline_sheet(workbook_path, table_name)
+    current = tables.get(table_name)
+    if baseline is None:
+        return "WARNING", f"Baseline {table_name[:31]} absente avant export."
+    if current is None or current.empty:
+        return "FAILED", f"Table courante {table_name} absente."
+    common_values = [c for c in value_cols if c in baseline.columns and c in current.columns]
+    baseline_part = _ordered_subset(baseline, key_cols, common_values)
+    current_part = _ordered_subset(current, key_cols, common_values)
+    if _same_table_values(baseline_part, current_part):
+        return "PASSED", f"{table_name} inchangé par les ajouts stress/backtest."
+    return "FAILED", f"{table_name} diffère du baseline pré-export."
+
+
+def build_stress_backtest_non_regression_check(
+    workbook_path: Path,
+    tables: dict[str, pd.DataFrame],
+    recommended_model: str,
+) -> pd.DataFrame:
+    rows: list[dict[str, str]] = []
+
+    baseline_final = _read_baseline_sheet(workbook_path, "Final_Decision_Matrix")
+    current_final = tables.get("Final_Decision_Matrix", pd.DataFrame())
+    if baseline_final is None:
+        status = "WARNING"
+        comment = "Baseline Final_Decision_Matrix absente avant export."
+    else:
+        baseline_rec = baseline_final.loc[
+            baseline_final["Scenario"].astype(str).eq("ExAnte_Central")
+            & baseline_final["Decision"].astype(str).eq("Recommended_Central")
+        ]
+        current_rec = current_final.loc[
+            current_final["Scenario"].astype(str).eq("ExAnte_Central")
+            & current_final["Decision"].astype(str).eq("Recommended_Central")
+        ]
+        if not baseline_rec.empty and not current_rec.empty and str(baseline_rec["Model"].iloc[0]) == str(current_rec["Model"].iloc[0]) == recommended_model:
+            status = "PASSED"
+            comment = f"Recommandation finale conservée : {MODEL_DISPLAY.get(recommended_model, recommended_model)}."
+        else:
+            status = "FAILED"
+            comment = "La recommandation centrale diffère du baseline."
+    rows.append({"Control_Item": "Recommendation_Unchanged", "Status": status, "Comment": comment})
+
+    comparisons = [
+        ("Optimized_Weights_Unchanged", "Optimization_Results_All", ["Scenario_Methodological_Name", "Model", "Asset"], ["Weight", "Amount_TND"]),
+        ("MonteCarlo_Unchanged", "Monte_Carlo_Portfolios", ["Portfolio_ID"], ["Expected_Return", "Volatility", "CVaR_99_5_Annualized", "Distance_L1_Current", "Weights_JSON"]),
+        ("Pareto_Unchanged", "Pareto_Filtered_Portfolios", ["Scenario_Methodological_Name", "Model"], ["Pareto_Status", "Score_Central"]),
+        ("Efficient_Frontier_Unchanged", "Efficient_Frontier", ["frontier_point_id"], ["target_return", "achieved_return", "volatility", "variance", "sharpe", "weights_json"]),
+        ("Allocation_10MD_Unchanged", "Impact_10MD_Summary", ["Allocation_Type"], ["Expected_Return_Annualized", "Volatility_Annualized", "CVaR_99_5_Annualized", "Impact_marginal_10MD"]),
+    ]
+    for item, table_name, key_cols, value_cols in comparisons:
+        status, comment = _baseline_table_status(workbook_path, tables, table_name, key_cols, value_cols)
+        rows.append({"Control_Item": item, "Status": status, "Comment": comment})
+
+    final_tables = ["Final_Comparative_Portfolios", "Portfolio_Comparison_Final", "Final_Decision_Matrix"]
+    max_div_absent = all(
+        "Model" not in tables.get(name, pd.DataFrame()).columns
+        or not tables[name]["Model"].astype(str).eq("Maximum_Diversification").any()
+        for name in final_tables
+    )
+    rows.append(
+        {
+            "Control_Item": "Maximum_Diversification_Cleaned",
+            "Status": "PASSED" if max_div_absent else "FAILED",
+            "Comment": "Maximum_Diversification absent des tables finales." if max_div_absent else "Maximum_Diversification reste present dans une table finale.",
+        }
+    )
+    narrative_present = (
+        "Narrative_Stress_Scenarios" in tables
+        and not tables["Narrative_Stress_Scenarios"].empty
+        and "Narrative_Stress_Recommended" in tables
+        and not tables["Narrative_Stress_Recommended"].empty
+    )
+    rows.append(
+        {
+            "Control_Item": "Narrative_Stress_Tables_Added",
+            "Status": "PASSED" if narrative_present else "FAILED",
+            "Comment": "Tables narratives ajoutées sans recalcul des allocations." if narrative_present else "Table narrative absente.",
+        }
+    )
+    recommended_stress = tables.get("Narrative_Stress_Recommended", pd.DataFrame())
+    if recommended_stress.empty:
+        pure_action_missing = np.nan
+    else:
+        pure_action_rows = recommended_stress.loc[
+            recommended_stress.get("Stress_Name", pd.Series(dtype=object)).astype(str).str.startswith("Actions_")
+        ]
+        pure_action_missing = int(pure_action_rows.get("Status", pd.Series(dtype=object)).astype(str).eq("DATA_MISSING").sum())
+    rows.append(
+        {
+            "Control_Item": "Pure_Equity_Stress_Nb_Missing",
+            "Status": "PASSED" if pure_action_missing == 0 else "FAILED",
+            "Comment": f"Stress actions purs : Nb_Missing = {pure_action_missing}.",
+        }
+    )
+    worst_backtest_present = (
+        "Worst_10_Sessions_2025_Backtest" in tables
+        and not tables["Worst_10_Sessions_2025_Backtest"].empty
+        and "Worst_10_Sessions_2025_Summary" in tables
+        and not tables["Worst_10_Sessions_2025_Summary"].empty
+    )
+    rows.append(
+        {
+            "Control_Item": "Worst_10_Sessions_Backtest_Added",
+            "Status": "PASSED" if worst_backtest_present else "FAILED",
+            "Comment": "Backtesting 10 pires séances ajouté sans recalcul des allocations." if worst_backtest_present else "Backtesting 10 pires séances absent ou incomplet.",
+        }
+    )
+    out = pd.DataFrame(rows)
+    control_display = {
+        "Recommendation_Unchanged": "Recommandation inchangée",
+        "Optimized_Weights_Unchanged": "Poids optimisés inchangés",
+        "MonteCarlo_Unchanged": "Monte Carlo inchangé",
+        "Pareto_Unchanged": "Filtre Pareto inchangé",
+        "Efficient_Frontier_Unchanged": "Frontière efficiente inchangée",
+        "Allocation_10MD_Unchanged": "Allocation 10 MD inchangée",
+        "Maximum_Diversification_Cleaned": "Maximum Diversification nettoyé",
+        "Narrative_Stress_Tables_Added": "Stress narratifs affichés",
+        "Pure_Equity_Stress_Nb_Missing": "Stress actions purs sans donnée manquante",
+        "Worst_10_Sessions_Backtest_Added": "Backtesting 10 pires séances affiché",
+    }
+    if "Control_Item" in out.columns:
+        out["Contrôle"] = out["Control_Item"].map(lambda x: control_display.get(str(x), str(x).replace("_", " ")))
+    return out
+
+
 def run_notebook02_pipeline(project_dir: str | Path, n_monte_carlo: int = N_MONTE_CARLO) -> dict[str, object]:
     project = Path(project_dir)
     export_dir = project / "data" / "exports" / "notebook_02"
     figures_dir = export_dir / "figures"
+    baseline_workbook = export_dir / "02_optimisation_outputs.xlsx"
     config = APTOptimizationConfig(monte_carlo_required=n_monte_carlo, cvar_beta=0.995, frontier_points=500)
     data = load_notebook01_optimization_inputs(project)
     universe = build_universe(data)
@@ -1073,6 +1672,7 @@ def run_notebook02_pipeline(project_dir: str | Path, n_monte_carlo: int = N_MONT
         "CVaR_95_Periodic",
         "CVaR_98_5_Periodic",
         "CVaR_99_5_Periodic",
+        "VaR_99_5_Annualized",
         "CVaR_95_Annualized",
         "CVaR_98_5_Annualized",
         "CVaR_99_5_Annualized",
@@ -1114,6 +1714,7 @@ def run_notebook02_pipeline(project_dir: str | Path, n_monte_carlo: int = N_MONT
     final_matrix = final_base[[c for c in final_matrix_cols if c in final_base.columns]].rename(
         columns={"Scenario_Methodological_Name": "Scenario", "Decision_Role": "Decision"}
     )
+    final_matrix = final_matrix.loc[~final_matrix["Model"].astype(str).eq("Maximum_Diversification")].copy()
     target_alloc, div_alloc, impact_10md = _build_10md_summary(
         scoring,
         all_portfolios,
@@ -1143,6 +1744,22 @@ def run_notebook02_pipeline(project_dir: str | Path, n_monte_carlo: int = N_MONT
         "Pareto_Status": "NOT_ELIGIBLE_MISSING_CRITICAL_DATA",
         "Feasible": False,
     }
+    recommended_model = str(rec_row.get("Model", "NO_RECOMMENDATION"))
+    narrative_scenarios = narrative_stress_scenarios_table()
+    narrative_recommended = _build_narrative_stress_recommended(
+        all_portfolios,
+        universe,
+        float(context["optimisable_value"]),
+        recommended_model,
+        scenario="ExAnte_Central",
+    )
+    worst_10_backtest, worst_10_summary = build_worst_10_sessions_2025_backtest(
+        all_portfolios,
+        returns,
+        universe,
+        recommended_model=recommended_model,
+        scenario="ExAnte_Central",
+    )
     current_row = uniform_eval.loc[
         uniform_eval["Scenario_Methodological_Name"].eq("ExAnte_Central")
         & uniform_eval["Model"].eq("Current_Portfolio")
@@ -1158,7 +1775,7 @@ def run_notebook02_pipeline(project_dir: str | Path, n_monte_carlo: int = N_MONT
         "de risque extrême, et non de SCR réglementaire complet."
     )
     stress_reporting_note = (
-        "DATA_MISSING_CRITICAL ne signifie pas une erreur d’exécution. Il indique que certains stress tests dépendant de données "
+        "Données critiques manquantes ne signifie pas une erreur d’exécution. Il indique que certains stress tests dépendant de données "
         "de duration/spread n’ont pas pu être calculés. Les stress disponibles ont été calculés et les données manquantes n’ont "
         "pas été remplacées par zéro."
     )
@@ -1171,12 +1788,20 @@ def run_notebook02_pipeline(project_dir: str | Path, n_monte_carlo: int = N_MONT
         [
             {
                 "Recommended_Model": rec_row.get("Model"),
+                "Recommended_Model_Display": _human_label(rec_row.get("Model"), MODEL_DISPLAY),
                 "Scenario": "ExAnte_Central",
+                "Scenario_Display": SCENARIO_DISPLAY["ExAnte_Central"],
+                "Synthèse_Recommandation": (
+                    f"Le portefeuille recommandé est issu du modèle {_human_label(rec_row.get('Model'), MODEL_DISPLAY)}, "
+                    f"sous le {SCENARIO_DISPLAY['ExAnte_Central'].lower()}."
+                ),
                 "Expected_Return": rec_row.get("Expected_Return", 0.0),
                 "Expected_Return_Annualized": rec_row.get("Expected_Return_Annualized", rec_row.get("Expected_Return", 0.0)),
                 "Volatility": rec_row.get("Volatility", 0.0),
                 "Volatility_Annualized": rec_row.get("Volatility_Annualized", rec_row.get("Volatility", 0.0)),
                 "Volatility_Status": rec_row.get("Volatility_Status", "ALREADY_ANNUALIZED"),
+                "VaR_99_5": rec_row.get("VaR_99_5", 0.0),
+                "VaR_99_5_Annualized": rec_row.get("VaR_99_5_Annualized", np.nan),
                 "CVaR_99_5": rec_row.get("CVaR_99_5", 0.0),
                 "CVaR_99_5_Annualized": rec_row.get("CVaR_99_5_Annualized", np.nan),
                 "Worst_Stress_Loss_TND": rec_row.get("Worst_Stress_Loss_TND", 0.0),
@@ -1211,9 +1836,9 @@ def run_notebook02_pipeline(project_dir: str | Path, n_monte_carlo: int = N_MONT
 
     assumptions = pd.DataFrame(
         [
-            ("Scenario_Principal", "ExAnte_Central", "Scenario prospectif de reference."),
-            ("Historical_Raw_Comparative", "Comparative only", "Ne pilote pas la decision."),
-            ("Mean_CVaR_95_98_5_99_5", "Rockafellar-Uryasev", "Trois niveaux: 95%, 98.5%, 99.5%. Objectif min CVaR annualisee - theta * rendement attendu annualise."),
+            ("Scenario_Principal", "ExAnte_Central", "Scénario prospectif de référence."),
+            ("Historical_Raw_Comparative", "Comparatif uniquement", "Ne pilote pas la décision."),
+            ("Mean_CVaR_95_98_5_99_5", "Rockafellar-Uryasev", "Trois niveaux : 95 %, 98,5 %, 99,5 %. Objectif : minimiser la CVaR annualisée - theta * rendement attendu annualisé."),
             ("CVaR_99_5", "Internal prudential indicator", cvar_995_reporting_note),
             ("ROE_Global", "REPORTING_NOTE", roe_reporting_note),
             ("Stress_Data_Missing", "DATA_MISSING_CRITICAL", stress_reporting_note),
@@ -1228,7 +1853,7 @@ def run_notebook02_pipeline(project_dir: str | Path, n_monte_carlo: int = N_MONT
     )
     dashboard_input = pd.DataFrame(
         [
-            (name, True, "Dashboard decisionnel", "PASSED")
+            (name, True, "Dashboard décisionnel", "PASSED")
             for name in [
                 "Optimization_Results_All",
                 "Uniform_Portfolio_Evaluation",
@@ -1260,7 +1885,33 @@ def run_notebook02_pipeline(project_dir: str | Path, n_monte_carlo: int = N_MONT
         final_recommendation["ROE_Note"] = roe_reporting_note
         final_recommendation["CVaR_99_5_Annualized_Note"] = cvar_995_reporting_note
         final_recommendation["DATA_MISSING_CRITICAL_Note"] = stress_reporting_note
+        final_recommendation["Note données critiques manquantes"] = stress_reporting_note
         final_recommendation["Non_Testable_Constraints_Note"] = regulatory_reporting_note
+    uniform_eval_display = prioritize_display_columns(add_display_columns(uniform_eval))
+    optimization_results_display = prioritize_display_columns(add_display_columns(optimization_results))
+    mc_df_display = prioritize_display_columns(add_display_columns(mc_df))
+    pareto_display = prioritize_display_columns(add_display_columns(pareto))
+    scoring_display = prioritize_display_columns(add_display_columns(scoring))
+    stability_display = prioritize_display_columns(add_display_columns(stability))
+    final_comparative_display = prioritize_display_columns(add_display_columns(final_comparative))
+    final_comparative_display = final_comparative_display.loc[
+        ~final_comparative_display.get("Model", pd.Series(dtype=object)).astype(str).eq("Maximum_Diversification")
+    ].copy()
+    final_matrix_display = prioritize_display_columns(add_display_columns(final_matrix))
+    final_recommendation_display = prioritize_display_columns(add_display_columns(final_recommendation))
+    executive_display = prioritize_display_columns(add_display_columns(executive))
+    impact_10md_display = prioritize_display_columns(add_display_columns(impact_10md))
+    target_alloc_display = prioritize_display_columns(add_display_columns(target_alloc))
+    div_alloc_display = prioritize_display_columns(add_display_columns(div_alloc))
+    stress_display = prioritize_display_columns(add_display_columns(stress))
+    stress_status_display = prioritize_display_columns(add_display_columns(stress_status_by_portfolio))
+    narrative_scenarios_display = prioritize_display_columns(add_display_columns(narrative_scenarios))
+    narrative_recommended_display = prioritize_display_columns(add_display_columns(narrative_recommended))
+    worst_10_backtest_display = prioritize_display_columns(add_display_columns(worst_10_backtest))
+    worst_10_summary_display = prioritize_display_columns(add_display_columns(worst_10_summary))
+    solver_audit_display = prioritize_display_columns(add_display_columns(solver_audit))
+    frontier_raw = pd.concat(frontier_tables, ignore_index=True) if frontier_tables else pd.DataFrame()
+    frontier_display = prioritize_display_columns(add_display_columns(frontier_raw))
 
     tables: dict[str, pd.DataFrame] = {
         "Inputs_From_Notebook01_Check": build_inputs_check(data, project),
@@ -1283,17 +1934,19 @@ def run_notebook02_pipeline(project_dir: str | Path, n_monte_carlo: int = N_MONT
         "CGA_Check_By_Model": pd.concat(cga_by_model_tables, ignore_index=True) if cga_by_model_tables else pd.DataFrame(),
         "Model_Deduplication_Check": build_model_deduplication_check(),
         "Model_Formulation_Register": build_model_formulation_register(),
-        "Solver_Audit_Log": solver_audit,
+        "Solver_Audit_Log": solver_audit_display,
         "Constraints_Audit_Log": pd.concat(constraints_audit_tables, ignore_index=True) if constraints_audit_tables else pd.DataFrame(),
-        "Optimization_Results_All": optimization_results,
-        "Uniform_Portfolio_Evaluation": uniform_eval,
+        "Optimization_Results_All": optimization_results_display,
+        "Uniform_Portfolio_Evaluation": uniform_eval_display,
         "Risk_Contribution_Check": pd.concat(risk_contribution_tables, ignore_index=True) if risk_contribution_tables else pd.DataFrame(),
-        "Efficient_Frontier": pd.concat(frontier_tables, ignore_index=True) if frontier_tables else pd.DataFrame(),
-        "Monte_Carlo_Portfolios": mc_df,
-        "VaR_CVaR_Multi_Level": uniform_eval[
+        "Efficient_Frontier": frontier_display,
+        "Monte_Carlo_Portfolios": mc_df_display,
+        "VaR_CVaR_Multi_Level": uniform_eval_display[
             [
                 "Scenario_Methodological_Name",
+                "Scénario",
                 "Model",
+                "Nom du modèle",
                 "VaR_95",
                 "CVaR_95",
                 "VaR_98_5",
@@ -1306,35 +1959,50 @@ def run_notebook02_pipeline(project_dir: str | Path, n_monte_carlo: int = N_MONT
                 "CVaR_95_Annualized",
                 "CVaR_98_5_Annualized",
                 "CVaR_99_5_Annualized",
+                "VaR_Display",
+                "CVaR_Display",
                 "CVaR_Level",
             ]
         ].assign(Warning=np.where(len(returns) < 2000, "LOW_SAMPLE_FOR_99_5_VAR", "OK")),
-        "Stress_Tests": stress,
-        "Stress_Data_Availability_Check": stress_data_check,
-        "Stress_Test_Status": stress_status_by_portfolio,
-        "Pareto_Filtered_Portfolios": pareto,
-        "Pareto_Filter_Audit": pareto,
-        "Scoring_MultiCriteria": scoring,
+        "Stress_Tests": stress_display,
+        "Stress_Data_Availability_Check": prioritize_display_columns(add_display_columns(stress_data_check)),
+        "Stress_Test_Status": stress_status_display,
+        "Narrative_Stress_Scenarios": narrative_scenarios_display,
+        "Narrative_Stress_Recommended": narrative_recommended_display,
+        "Worst_10_Sessions_2025_Backtest": worst_10_backtest_display,
+        "Worst_10_Sessions_2025_Summary": worst_10_summary_display,
+        "Pareto_Filtered_Portfolios": pareto_display,
+        "Pareto_Filter_Audit": pareto_display,
+        "Scoring_MultiCriteria": scoring_display,
         "Score_Components": score_components,
-        "Recommendation_Stability": stability,
-        "Allocation_10MD_Target_Seeking": target_alloc,
-        "Allocation_10MD_Diversified": div_alloc,
-        "Impact_10MD_Summary": impact_10md,
-        "Allocation_10MD_Impact": impact_10md,
-        "Final_Comparative_Portfolios": final_comparative,
-        "Portfolio_Comparison_Final": final_comparative,
-        "Final_Decision_Matrix": final_matrix,
-        "Final_Recommendation": final_recommendation,
-        "Executive_Decision_Summary": executive,
+        "Recommendation_Stability": stability_display,
+        "Allocation_10MD_Target_Seeking": target_alloc_display,
+        "Allocation_10MD_Diversified": div_alloc_display,
+        "Impact_10MD_Summary": impact_10md_display,
+        "Allocation_10MD_Impact": impact_10md_display,
+        "Final_Comparative_Portfolios": final_comparative_display,
+        "Portfolio_Comparison_Final": final_comparative_display,
+        "Final_Decision_Matrix": final_matrix_display,
+        "Final_Recommendation": final_recommendation_display,
+        "Executive_Decision_Summary": executive_display,
         "Mean_CVaR_Diagnostics": pd.concat(cvar_diag, ignore_index=True) if cvar_diag else pd.DataFrame(),
-        "Mean_CVaR_Comparison": uniform_eval.loc[uniform_eval["Model"].astype(str).str.startswith("Mean_CVaR")].copy(),
+        "Mean_CVaR_Comparison": uniform_eval_display.loc[uniform_eval_display["Model"].astype(str).str.startswith("Mean_CVaR")].copy(),
         "Constraint_Check_By_Portfolio": pd.concat(constraints_audit_tables, ignore_index=True) if constraints_audit_tables else pd.DataFrame(),
-        "MonteCarlo_Results": mc_df,
+        "MonteCarlo_Results": mc_df_display,
         "Optimization_Not_Implemented": pd.concat(not_impl_tables, ignore_index=True) if not_impl_tables else pd.DataFrame(),
-        "Dashboard_Input_Table": dashboard_input,
+                "Dashboard_Input_Table": dashboard_input,
         "Package_Notebook_Coherence": package_check,
         "Assumptions_Limits": assumptions,
     }
+    tables["Stress_Backtest_Non_Regression_Check"] = prioritize_display_columns(
+        add_display_columns(
+            build_stress_backtest_non_regression_check(
+                baseline_workbook,
+                tables,
+                recommended_model,
+            )
+        )
+    )
     constraints_audit = tables["Constraints_Audit_Log"]
     cga_by_model = tables["CGA_Check_By_Model"]
     issuer_status = "PASSED" if not constraints_audit["Status"].astype(str).str.contains("NOT_TESTABLE_DATA_MISSING").any() else "PASSED_WITH_WARNINGS"
@@ -1354,6 +2022,14 @@ def run_notebook02_pipeline(project_dir: str | Path, n_monte_carlo: int = N_MONT
     recommendation_status = "PASSED" if recommendation_feasible and recommendation_pareto and rec_row.get("Model") != "NO_RECOMMENDATION" else "FAILED"
     monte_carlo_status = "PASSED" if len(mc_df) == n_monte_carlo and "MonteCarlo_Best" in set(uniform_eval["Model"].astype(str)) else "FAILED"
     efficient_frontier_status = "PASSED" if tables.get("Efficient_Frontier", pd.DataFrame()).shape[0] > 0 else "FAILED"
+    recommended_stress_check = tables.get("Narrative_Stress_Recommended", pd.DataFrame())
+    if recommended_stress_check.empty:
+        pure_action_missing = np.nan
+    else:
+        pure_action_rows = recommended_stress_check.loc[
+            recommended_stress_check.get("Stress_Name", pd.Series(dtype=object)).astype(str).str.startswith("Actions_")
+        ]
+        pure_action_missing = int(pure_action_rows.get("Status", pd.Series(dtype=object)).astype(str).eq("DATA_MISSING").sum())
     target_shortfall_value = pd.to_numeric(pd.Series([rec_row.get("Target_ROE_Shortfall")]), errors="coerce").iloc[0]
     target_roe_status = "PASSED_WITH_WARNINGS" if pd.notna(target_shortfall_value) and target_shortfall_value > 1e-10 else "PASSED"
     critical_nan_final = final_matrix[
@@ -1363,14 +2039,14 @@ def run_notebook02_pipeline(project_dir: str | Path, n_monte_carlo: int = N_MONT
     if not recommendation_feasible or not recommendation_pareto or critical_nan_final or mean_cvar_status == "FAILED" or efficient_frontier_status == "FAILED":
         global_status = "FAILED"
     checks = [
-        ("Global_Status", global_status, "PASSED_WITH_WARNINGS si les résultats sont utilisables avec limites documentées ; FAILED si anomalie critique."),
+        ("Global_Status", global_status, "Validé avec réserves si les résultats sont utilisables avec limites documentées ; non validé si une anomalie critique subsiste."),
         ("Notebook_Execution_Status", "PASSED", "Notebook 02 exécuté via nbconvert sans traceback lors de la validation finale."),
         ("Package_Notebook_Coherence", "PASSED", "Le notebook appelle from maghrebia_quant.optimization import run_notebook02_pipeline."),
         ("Mean_CVaR_Status", mean_cvar_status, "Mean_CVaR_95, Mean_CVaR_98_5 et Mean_CVaR_99_5 sont produits par le pipeline actif."),
         ("Pareto_Status", pareto_status_final, "La recommandation centrale doit être Pareto efficient."),
         ("Recommendation_Status", recommendation_status, "La recommandation doit être faisable et issue des modèles décisionnels éligibles."),
         ("Constraint_Status", "PASSED" if np.isfinite(max_violation) and max_violation <= 1e-6 else "FAILED", "Contraintes internes recalculées ; les contraintes non testables restent signalées."),
-        ("Stress_Test_Status", stress_status, "DATA_MISSING_CRITICAL reste un warning explicite, jamais une perte nulle."),
+        ("Stress_Test_Status", stress_status, "Les données critiques manquantes restent un warning explicite, jamais une perte nulle."),
         ("MonteCarlo_Status", monte_carlo_status, "MonteCarlo_Best est évalué et 30 000 portefeuilles admissibles sont générés."),
         ("Efficient_Frontier_Status", efficient_frontier_status, "La table et la figure Efficient_Frontier sont générées."),
         ("Target_ROE_Status", target_roe_status, "Le scoring pénalise uniquement Target_ROE_Shortfall ; Target_ROE_Excess n'est pas pénalisé."),
@@ -1388,6 +2064,7 @@ def run_notebook02_pipeline(project_dir: str | Path, n_monte_carlo: int = N_MONT
         ("Monte_Carlo_30000_Status", "PASSED" if len(mc_df) == n_monte_carlo else "PASSED_WITH_WARNINGS", f"{len(mc_df)} portefeuilles admissibles générés."),
         ("MonteCarlo_Best_Status", "PASSED", "MonteCarlo_Best est un benchmark exploratoire, évalué mais exclu du scoring décisionnel."),
         ("Stress_Data_Status", stress_status, "DATA_MISSING conserve lorsque duration/spread manque."),
+        ("Pure_Equity_Stress_Nb_Missing", "PASSED" if pure_action_missing == 0 else "FAILED", f"Stress actions purs : Nb_Missing = {pure_action_missing}."),
         ("Recommended_Feasibility_Status", "PASSED" if recommendation_feasible else "FAILED", "La recommandation centrale doit être faisable."),
         ("Recommended_Pareto_Status", "PASSED" if recommendation_pareto else "FAILED", "La recommandation centrale doit être Pareto efficiente."),
         ("Final_NaN_Critical_Status", "PASSED" if not critical_nan_final else "FAILED", "Aucun NaN critique dans la matrice finale."),
@@ -1397,7 +2074,9 @@ def run_notebook02_pipeline(project_dir: str | Path, n_monte_carlo: int = N_MONT
         ("Narrative_Consistency_Status", "PASSED", "ExAnte visible ; aliases techniques confinés au mapping."),
         ("Remaining_Warnings", "PASSED_WITH_WARNINGS", "Capital social non testable ; CVaR 99,5 fragile avec historique court."),
     ]
-    tables["Final_Notebook02_Check"] = pd.DataFrame(checks, columns=["Check_Name", "Status", "Comment"])
+    tables["Final_Notebook02_Check"] = prioritize_display_columns(
+        add_display_columns(pd.DataFrame(checks, columns=["Check_Name", "Status", "Comment"]))
+    )
     tables["Quality_Checks"] = tables["Final_Notebook02_Check"].copy()
     figures = _build_figures(tables, figures_dir)
     tables["Package_Notebook_Coherence"] = pd.DataFrame(

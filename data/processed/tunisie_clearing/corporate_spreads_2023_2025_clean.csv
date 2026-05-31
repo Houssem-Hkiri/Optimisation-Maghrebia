@@ -1,0 +1,4 @@
+﻿date,year,month,sector,spread_type,spread_percent,spread_decimal,previous_spread_percent,final_spread_percent,source_pdf,source_url,source_text_snippet,extraction_method,extraction_confidence,data_quality_flag,extraction_status
+,2023,,,,,,,,,,,,,NO_OFFICIAL_CORPORATE_CURVE_BEFORE_END_2023,NO_OFFICIAL_CORPORATE_SPREAD_DETECTED
+,2024,,,,,,,,,,,,,NO_CORPORATE_SPREAD_SECTION_DETECTED,NO_OFFICIAL_CORPORATE_SPREAD_DETECTED_IN_YEAR
+,2025,,,,,,,,,,,,,NO_CORPORATE_SPREAD_SECTION_DETECTED,NO_OFFICIAL_CORPORATE_SPREAD_DETECTED_IN_YEAR

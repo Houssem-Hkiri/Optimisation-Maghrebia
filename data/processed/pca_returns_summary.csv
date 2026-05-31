@@ -1,0 +1,2 @@
+﻿cumulative_variance_first_component,cumulative_variance_displayed,n_components_80pct,n_components_90pct,n_obs,n_assets,status,usage,interpretation
+0.4251423956851249,0.7344095466339088,7,9,246,21,OK,PCA_DIAGNOSTIC_ONLY,"Diagnostic de concentration du risque, non utilisé comme prévision directe."

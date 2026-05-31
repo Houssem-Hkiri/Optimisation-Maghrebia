@@ -1,2 +1,0 @@
-control_name,RETURN_FREQUENCY,PERIODS_PER_YEAR,BACKTEST_DATA_FREQUENCY,BACKTEST_PERIODS_PER_YEAR,frequency_flag,status,comment
-BACKTEST_FREQUENCY_INFERENCE,daily,252,daily,252,FREQUENCY_INFERRED_DAILY,PASSED,Fréquence inférée depuis les dates de la matrice de rendements utilisée pour le backtest.

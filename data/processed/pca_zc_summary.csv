@@ -1,0 +1,4 @@
+﻿component,explained_variance_ratio,cumulative_explained_variance,n_obs,n_variables,status,usage,interpretation,loading_maturity_correlation,sign_changes,methodological_comment
+PC1,0.7327017048647875,0.7327017048647875,52,21,OK,PCA_DIAGNOSTIC_ONLY,PCA_INTERPRETATION_CAUTION,-0.758061311190488,2,"PC1 explique une part importante des variations de courbe, mais sa forme ne permet pas de l'interpréter mécaniquement comme facteur de niveau. La PCA est donc utilisée comme diagnostic empirique et non comme facteur économique imposé."
+PC2,0.2039908632165577,0.9366925680813452,52,21,OK,PCA_DIAGNOSTIC_ONLY,pente,0.7988660431642448,2,Interprétation retenue car la forme des loadings est cohérente.
+PC3,0.06330734235992343,0.9999999104412686,52,21,OK,PCA_DIAGNOSTIC_ONLY,courbure,-0.31121925082448515,2,Interprétation retenue car la forme des loadings est cohérente.

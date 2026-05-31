@@ -1,0 +1,10 @@
+﻿Scenario,Asset_Class,Lower_Bound,Upper_Bound,Justification
+prudent,Actions cotées,-0.05,0.16,Bornes plus larges car le risque actions est plus élevé ; plafond encadré pour ne pas extrapoler 2025.
+prudent,Titres de l'État,0.05,0.105,Bornes serrées autour du TSR et de la prime de maturité souveraine observée.
+prudent,Emprunts obligataires,0.06,0.12,Bornes intermédiaires intégrant une prime de crédit sans créer de spread absent.
+central,Actions cotées,-0.05,0.18,Bornes plus larges car le risque actions est plus élevé ; plafond encadré pour ne pas extrapoler 2025.
+central,Titres de l'État,0.05,0.12,Bornes serrées autour du TSR et de la prime de maturité souveraine observée.
+central,Emprunts obligataires,0.06,0.14,Bornes intermédiaires intégrant une prime de crédit sans créer de spread absent.
+optimistic,Actions cotées,-0.02,0.25,Bornes plus larges car le risque actions est plus élevé ; plafond encadré pour ne pas extrapoler 2025.
+optimistic,Titres de l'État,0.06,0.13,Bornes serrées autour du TSR et de la prime de maturité souveraine observée.
+optimistic,Emprunts obligataires,0.07,0.16,Bornes intermédiaires intégrant une prime de crédit sans créer de spread absent.

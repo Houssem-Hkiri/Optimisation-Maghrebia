@@ -1,8 +1,54 @@
+# Python caches and build artifacts
 __pycache__/
 *.py[cod]
-.ipynb_checkpoints/
+*$py.class
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+notebooks/.ipynb_checkpoints/
+
+# Virtual environments and local secrets
 .venv/
+venv/
+env/
+.env
+.env.*
+
+# IDE and OS metadata
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.log
+~$*
+_cells_dump.txt
+sample.ipynb
+* - backup.ipynb
+notebooks/backups/
+notebooks/exports/
+
+# Legacy generated outputs kept out of the final handoff
+outputs/
+exports/
+
+# Confidential or raw data
+data/raw/
 data/interim/
-data/processed/
-data/exports/
+data/*Portfolio*.xlsx
+data/Socio*.xlsx
+data/*confidentiel*
+data/*confidential*
+
+# Keep final reproducible exports under data/exports/notebook_01,
+# data/exports/notebook_02 and data/exports/optimization_inputs.

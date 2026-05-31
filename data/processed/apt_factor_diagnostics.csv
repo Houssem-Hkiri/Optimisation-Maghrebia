@@ -1,0 +1,9 @@
+﻿Factor,Available,Coverage_Ratio,N_Obs,Mean,Volatility,Correlation_With_Asset_Returns_Avg,Significance_Status,Stability_Status,Economic_Relevance,Use_In_Central,Use_In_Prudent,Use_In_Optimistic,Reason
+mkt_excess_tunindex20,True,0.9622641509433962,51,0.004763319252627821,0.009331720962042543,0.22111361805721716,DISCRIMINANT,EXPLOITABLE,Risque de marché actions tunisien,True,True,True,Facteur exploitable et économiquement pertinent.
+delta_zc_5y,True,0.9245283018867925,49,-4.864592911379293e-05,0.00019829525180376328,0.2975878189011705,DISCRIMINANT,EXPLOITABLE,Risque de taux souverain moyen terme,True,True,True,Facteur exploitable et économiquement pertinent.
+delta_credit_spread_5y,True,0.9245283018867925,49,9.578251513385602e-05,0.0010162455013611553,0.05010621646844694,DISCRIMINANT,EXPLOITABLE,Risque de crédit corporate,True,True,True,Facteur exploitable et économiquement pertinent.
+delta_inflation_yoy,True,0.8867924528301887,47,-0.00023404255319148929,0.0008132801527428993,0.16958856418955873,DISCRIMINANT,EXPLOITABLE,Risque macro-inflation,True,True,True,Facteur exploitable et économiquement pertinent.
+slope_zc_10y_2y,False,0.0,0,,,,FAIBLE_DISCRIMINATION,NON_INFORMATIF,Pente de courbe,False,False,False,Série absente des données disponibles.
+delta_slope_zc_10y_2y,False,0.0,0,,,,FAIBLE_DISCRIMINATION,NON_INFORMATIF,Variation de pente de courbe,False,False,False,Série absente des données disponibles.
+liquidity_factor,False,0.0,0,,,,FAIBLE_DISCRIMINATION,NON_INFORMATIF,Risque de liquidité,False,False,False,Série absente des données disponibles.
+equity_market_factor,False,0.0,0,,,,FAIBLE_DISCRIMINATION,NON_INFORMATIF,Facteur actions alternatif,False,False,False,Série absente des données disponibles.
